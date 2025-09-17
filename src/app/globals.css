@@ -1,26 +1,95 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
+
+body {
+  font-family: 'Rubik', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --background: #1A1B26;
+  --surface: #24283B;
+  --text-primary: #A9B1D6;
+  --text-secondary: #565F89;
+  --text-incorrect: #F7768E;
+  --accent-primary: #E0AF68;
+  --accent-secondary: #7AA2F7;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-rubik: 'Rubik', sans-serif;
+  --font-space-mono: 'Space Mono', monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+/* Background + Text Utilities */
+.bg-background { background-color: var(--background); }
+.text-background { color: var(--background); }
+
+.bg-surface { background-color: var(--surface); }
+.text-surface { color: var(--surface); }
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-incorrect { color: var(--text-incorrect); }
+
+.hover\:text-primary:hover { color: var(--text-primary); } 
+.hover\:bg-accent-primary:hover { background-color: var(--accent-primary); } 
+.hover\:text-accent-primary:hover { color: var(--accent-primary); }
+
+/* Accent Primary */
+.bg-accent-primary { background-color: var(--accent-primary); }
+.text-accent-primary { color: var(--accent-primary); }
+.hover\:bg-accent-primary:hover { background-color: var(--accent-primary); }
+.hover\:text-accent-primary:hover { color: var(--accent-primary); }
+
+/* Accent Secondary */
+.bg-accent-secondary { background-color: var(--accent-secondary); }
+.text-accent-secondary { color: var(--accent-secondary); }
+.hover\:bg-accent-secondary:hover { background-color: var(--accent-secondary); }
+.hover\:text-accent-secondary:hover { color: var(--accent-secondary); }
+
+/* Incorrect (Error-like) */
+.bg-incorrect { background-color: var(--text-incorrect); }
+.text-incorrect { color: var(--text-incorrect); }
+.hover\:bg-incorrect:hover { background-color: var(--text-incorrect); }
+.hover\:text-incorrect:hover { color: var(--text-incorrect); }
+
+
+/* Font utilities */
+.font-rubik {
+  font-family: 'Rubik', sans-serif;
+}
+
+.font-space-mono{
+  font-family: var(--font-space-mono);
+}
+/* Effects */
+
+.hover-underline-animation {
+  /* display: inline-block; */
+  position: relative;
+}
+
+.hover-underline-animation::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  transform: scaleX(0);
+  height: 2px;
+  bottom: 0;
+  left: 0;
+  background-color: var(--accent-primary);;
+  transition: transform 0.25s ease-out;
+  transform-origin: bottom right;
+}
+
+.hover-underline-animation:hover::after {
+  transform: scaleX(1);
+  transform-origin: bottom left;
+}
+
+.btnActive{
+  color:#88C0D0;
 }
