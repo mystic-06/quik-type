@@ -24,7 +24,7 @@ export default function Room(){
             isHost: false
         }
     ]);
-    const [mockConfig, setMockConfig] = useState({ timerDuration: 30 });
+    const [mockConfig, setMockConfig] = useState({ timerDuration: 15 });
 
     // Join room on component mount
     useEffect(() => {
@@ -52,40 +52,50 @@ export default function Room(){
     };
 
     const handleReadyToggle = () => {
-        if (isConnected) {
+        console.log('Ready toggle clicked!', { isConnected, effectiveCurrentUserId, roomState });
+        
+        if (isConnected && roomState) {
+            console.log('Calling toggleReady via socket');
             toggleReady();
         } else {
+            console.log('Updating mock participants for offline mode');
             // Update mock participants for offline mode
-            setMockParticipants(prev => 
-                prev.map(p => 
+            setMockParticipants(prev => {
+                const updated = prev.map(p => 
                     p.id === effectiveCurrentUserId 
                         ? { ...p, isReady: !p.isReady }
                         : p
-                )
-            );
+                );
+                console.log('Updated mock participants:', updated);
+                return updated;
+            });
         }
     };
 
     // Use socket room state or fallback to mock data for development
     const phase = roomState?.phase || "setup";
     const roomConfig = roomState?.config || mockConfig;
-    const participants = roomState?.participants || mockParticipants;
-    const effectiveCurrentUserId = currentUserId || "mock-user-1";
+    const participants = (isConnected && roomState?.participants) ? roomState.participants : mockParticipants;
+    const effectiveCurrentUserId = currentUserId || "mock-1";
     
     const currentUser = participants.find(p => p.id === effectiveCurrentUserId);
     const isHost = currentUser?.isHost || false;
 
-    // Show connection status
-    if (!isConnected && hasJoined) {
-        return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <div className="text-center">
-                    <div className="text-2xl text-primary mb-4">Connecting to room...</div>
-                    <div className="text-secondary">Please wait while we connect you to the server.</div>
-                </div>
-            </div>
-        );
+    // Debug logging (can be removed in production)
+    if (process.env.NODE_ENV === 'development') {
+        console.log('Room state debug:', {
+            isConnected,
+            hasRoomState: !!roomState,
+            currentUserId,
+            effectiveCurrentUserId,
+            participantsCount: participants.length,
+            currentUser,
+            isHost
+        });
     }
+
+    // Show connection status only briefly, then allow offline mode
+    // Removed the blocking connection screen to allow offline mode
 
     return(
         <div className="min-h-screen bg-background px-4 py-8">
@@ -98,7 +108,7 @@ export default function Room(){
                 <div className="text-center mb-6">
                     <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
                         isConnected 
-                            ? 'bg-accent-secondary bg-opacity-20 text-accent-secondary' 
+                            ? 'bg-surface bg-opacity-20 text-accent-secondary' 
                             : 'bg-text-secondary bg-opacity-20 text-secondary'
                     }`}>
                         <div className={`w-2 h-2 rounded-full ${

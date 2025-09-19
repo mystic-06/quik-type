@@ -47,7 +47,7 @@ export function useSocket(): UseSocketReturn {
 
     // Connection event handlers
     socket.on("connect", () => {
-      console.log("Connected to server");
+      console.log("Connected to server", socket.id);
       setIsConnected(true);
     });
 
@@ -56,10 +56,16 @@ export function useSocket(): UseSocketReturn {
       setIsConnected(false);
     });
 
+    socket.on("connect_error", (error) => {
+      console.error("Connection error:", error);
+      setIsConnected(false);
+    });
+
     // Room event handlers
     socket.on("room-joined", (roomState: RoomState) => {
-      console.log("Room joined:", roomState);
+      console.log("Room joined event received:", roomState);
       setRoomState(roomState);
+      console.log("Room state updated");
     });
 
     socket.on("participant-joined", (participant: Participant) => {
@@ -122,6 +128,10 @@ export function useSocket(): UseSocketReturn {
       });
     });
 
+    socket.on("countdown-update", (countdown: number) => {
+      console.log("Countdown update:", countdown);
+    });
+
     socket.on("test-start", (testText: string, duration: number) => {
       console.log("Test started:", testText, duration);
       setRoomState((prev) => {
@@ -129,6 +139,17 @@ export function useSocket(): UseSocketReturn {
         return {
           ...prev,
           phase: "test",
+        };
+      });
+    });
+
+    socket.on("test-end", () => {
+      console.log("Test ended");
+      setRoomState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          phase: "results",
         };
       });
     });
@@ -145,8 +166,11 @@ export function useSocket(): UseSocketReturn {
   }, []);
 
   const joinRoom = (roomId: string, username: string) => {
+    console.log('joinRoom called', { roomId, username, socketExists: !!socketRef.current });
     if (socketRef.current) {
+      console.log('Connecting socket...');
       socketRef.current.connect();
+      console.log('Emitting join-room event...');
       socketRef.current.emit("join-room", roomId, username);
     }
   };
@@ -158,8 +182,12 @@ export function useSocket(): UseSocketReturn {
   };
 
   const toggleReady = () => {
+    console.log('toggleReady called', { socketExists: !!socketRef.current, isConnected });
     if (socketRef.current && isConnected) {
+      console.log('Emitting ready-toggle event');
       socketRef.current.emit("ready-toggle");
+    } else {
+      console.log('Cannot emit ready-toggle - socket not connected');
     }
   };
 
