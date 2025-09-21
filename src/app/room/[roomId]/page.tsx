@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import SetupPhase from "@/components/SetupPhase";
+import CountdownPhase from "@/components/CountdownPhase";
+import TypingArea from "@/components/TypingArea";
 import { useSocket } from "@/hooks/useSocket";
 
 export default function Room(){
@@ -132,7 +134,7 @@ export default function Room(){
                 {phase === "countdown" && (
                     <div className="text-center">
                         <div className="text-6xl font-bold text-accent-primary">
-                            Countdown Phase
+                            <CountdownPhase/>
                         </div>
                     </div>
                 )}
@@ -140,6 +142,7 @@ export default function Room(){
                 {phase === "test" && (
                     <div className="text-center">
                         <div className="text-6xl font-bold text-accent-secondary">
+                            <TypingArea />
                             Test Phase
                         </div>
                     </div>

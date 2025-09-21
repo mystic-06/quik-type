@@ -1,36 +1,123 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Speed Typing ⚡
+
+A real-time multiplayer typing test application built with Next.js and Socket.IO.
+
+## Features
+
+### Core Features
+
+- ✅ **Countdown Timer** - 5-second countdown before tests begin
+- ✅ **Test Phase Management** - Custom hook for managing different test phases
+- ✅ **Socket.IO Integration** - Real-time communication setup
+- ✅ **Typing Test Engine** - Word generation and accuracy tracking
+- 🚧 **Real-time Results** - Live WPM and accuracy calculation
+
+### Multiplayer Features
+
+- ✅ **Room System** - Join/create typing rooms
+- 🚧 **Live Player Status** - See other players' progress in real-time
+- 🚧 **Synchronized Start** - All players start simultaneously
+- 📋 **Leaderboard** - Track high scores and rankings
+
+### UI Components
+
+- ✅ **Header Component** - Navigation and branding
+- ✅ **Countdown Phase** - Pre-test countdown display
+- ✅ **Setup Phase** - Room configuration and player setup
+- ✅ **Results Display** - Post-test statistics and comparison
+- ✅ **Typing Area** - Main typing interface
+
+## Tech Stack
+
+- **Frontend**: Next.js 15, React 19, TypeScript
+- **Styling**: Tailwind CSS 4
+- **Real-time**: Socket.IO
+- **Backend**: Express.js server
+- **Icons**: Lucide React
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
+1. Clone the repository
+
+```bash
+git clone <repository-url>
+cd speed-typing
+```
+
+2. Install dependencies
+
+```bash
+npm install
+```
+
+3. Start the development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Start the Socket.IO server
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+node server/index.js
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/
+│   ├── room/[roomId]/     # Dynamic room pages
+│   ├── multiplayer/       # Multiplayer lobby
+│   ├── leaderboard/       # Score rankings
+│   └── page.tsx          # Home page
+├── components/
+│   ├── CountdownPhase.tsx # Pre-test countdown
+│   ├── Header.tsx        # Navigation header
+│   ├── SetupPhase.tsx    # Room setup
+│   └── TypingArea.tsx    # Main typing interface
+├── hooks/
+│   ├── useSocket.ts      # Socket.IO connection
+│   └── useTestingPhase.ts # Test state management
+└── server/
+    └── index.js          # Express + Socket.IO server
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Development Status
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Legend
 
-## Deploy on Vercel
+- ✅ **Complete** - Feature is implemented and working
+- 🚧 **In Progress** - Currently being developed
+- 📋 **Planned** - Scheduled for future development
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Current Sprint
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- 🚧 Synchronized Start
+
+## Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm start` - Start production server
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is private and not licensed for public use.
