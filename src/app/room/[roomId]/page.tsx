@@ -9,7 +9,7 @@ import { useSocket } from "@/hooks/useSocket";
 export default function Room(){
     const params = useParams();
     const roomId = params.roomId as string;
-    const { socket, isConnected, roomState, joinRoom, configureTest, toggleReady } = useSocket();
+    const { socket, isConnected, roomState, joinRoom, configureTest, toggleReady, time, isTestActive, setTime, setTestStatus } = useSocket();
     const [currentUserId, setCurrentUserId] = useState<string>("");
     const [hasJoined, setHasJoined] = useState(false);
     const [mockParticipants, setMockParticipants] = useState(() => [
@@ -52,6 +52,14 @@ export default function Room(){
             setMockConfig(config);
         }
     };
+
+    function handleTestStart() {
+        setTestStatus(true);
+    }
+
+    function handleTestFinish() {
+        setTestStatus(false);
+    }
 
     const handleReadyToggle = () => {
         console.log('Ready toggle clicked!', { isConnected, effectiveCurrentUserId, roomState });
@@ -142,7 +150,7 @@ export default function Room(){
                 {phase === "test" && (
                     <div className="text-center">
                         <div className="text-6xl font-bold text-accent-secondary">
-                            <TypingArea />
+                            <TypingArea time={time} isTestActive={isTestActive} onTestStart={handleTestStart} onTestFinish={handleTestFinish}/>
                             Test Phase
                         </div>
                     </div>

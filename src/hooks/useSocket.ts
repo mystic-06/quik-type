@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
 interface Participant {
@@ -27,12 +27,19 @@ interface UseSocketReturn {
   configureTest: (config: { timerDuration: number }) => void;
   toggleReady: () => void;
   leaveRoom: () => void;
+
+  time: number;
+  isTestActive: boolean;
+  setTime: React.Dispatch<React.SetStateAction<number>>;
+  setTestStatus: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export function useSocket(): UseSocketReturn {
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [roomState, setRoomState] = useState<RoomState | null>(null);
+  const [time, setTime] = useState(15);
+  const [isTestActive, setTestStatus] = useState(false);
 
   useEffect(() => {
     // Initialize socket connection
@@ -134,6 +141,8 @@ export function useSocket(): UseSocketReturn {
 
     socket.on("test-start", (testText: string, duration: number) => {
       console.log("Test started:", testText, duration);
+      setTime(duration);
+      setTestStatus(true);
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -145,6 +154,7 @@ export function useSocket(): UseSocketReturn {
 
     socket.on("test-end", () => {
       console.log("Test ended");
+      setTestStatus(false);
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -206,5 +216,9 @@ export function useSocket(): UseSocketReturn {
     configureTest,
     toggleReady,
     leaveRoom,
+    time,
+    isTestActive,
+    setTime,
+    setTestStatus
   };
 }
