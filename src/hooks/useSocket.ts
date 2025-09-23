@@ -1,5 +1,6 @@
 "use client";
-import { use, useEffect, useRef, useState } from "react";
+import { generate } from "random-words";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 
 interface Participant {
@@ -32,6 +33,7 @@ interface UseSocketReturn {
   isTestActive: boolean;
   setTime: React.Dispatch<React.SetStateAction<number>>;
   setTestStatus: React.Dispatch<React.SetStateAction<boolean>>;
+  testContent: string;
 }
 
 export function useSocket(): UseSocketReturn {
@@ -40,6 +42,11 @@ export function useSocket(): UseSocketReturn {
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [time, setTime] = useState(15);
   const [isTestActive, setTestStatus] = useState(false);
+  const [testContent, setTestContent] = useState<string>("");
+
+  // Generate fallback content for offline mode
+  const fallbackContent = useMemo(() => (generate(200) as string[]).join(" "), []);
+
 
   useEffect(() => {
     // Initialize socket connection
@@ -141,6 +148,7 @@ export function useSocket(): UseSocketReturn {
 
     socket.on("test-start", (testText: string, duration: number) => {
       console.log("Test started:", testText, duration);
+      setTestContent(testText);
       setTime(duration);
       setTestStatus(true);
       setRoomState((prev) => {
@@ -219,6 +227,7 @@ export function useSocket(): UseSocketReturn {
     time,
     isTestActive,
     setTime,
-    setTestStatus
+    setTestStatus,
+    testContent: testContent || fallbackContent
   };
 }

@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { createServer } = require("node:http");
 const { Server } = require("socket.io");
+const { generate } = require("random-words");
 
 const app = express();
 
@@ -296,8 +297,9 @@ io.on("connection", (socket) => {
 
             // Start the test
             room.phase = "test";
-            const testText =
-              "The quick brown fox jumps over the lazy dog. This is a sample typing test to measure your words per minute and accuracy.";
+            // Generate random words for the test (same for all players in the room)
+            const testWords = generate(200);
+            const testText = Array.isArray(testWords) ? testWords.join(" ") : testWords;
             room.config.testText = testText;
 
             io.to(socket.roomId).emit(
