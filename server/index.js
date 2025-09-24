@@ -118,7 +118,7 @@ const io = new Server(server, {
   cors: {
     origin:
       process.env.NODE_ENV === "production"
-        ? ["https://your-domain.com"] // Replace with actual production domain
+        ? ["https://your-domain.com"] 
         : ["http://localhost:3000"],
     methods: ["GET", "POST"],
     credentials: true,
@@ -285,7 +285,7 @@ io.on("connection", (socket) => {
         room.phase = "countdown";
 
         // Start 3-second countdown
-        let countdown = 3;
+        let countdown = 5;
         io.to(socket.roomId).emit("countdown-start", countdown);
 
         const countdownInterval = setInterval(() => {
@@ -316,7 +316,7 @@ io.on("connection", (socket) => {
                 io.to(socket.roomId).emit("test-end");
                 console.log(`Test ended in room ${socket.roomId}`);
               }
-            }, room.config.timerDuration * 1000);
+            }, (room.config.timerDuration+3) * 1000);
           }
         }, 1000);
       }

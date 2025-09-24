@@ -24,7 +24,7 @@ export default function CountdownPhase({ countdown = 5 }: props) {
 
   return (
     <>
-      <div className="flex flex-col items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center mt-20 min-h-screen">
         <h1 className="text-4xl font-bold mb-4 text-accent-secondary">Starting in</h1>
         <h1 className="text-6xl font-bold text-accent-secondary">{timeLeft}</h1>
       </div>

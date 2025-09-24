@@ -184,7 +184,7 @@ export default function Room() {
         {phase === "results" && (
           <div className="text-center">
             <div className="text-6xl font-bold text-accent-primary">
-              Results Phase
+              Results
             </div>
           </div>
         )}

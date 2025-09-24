@@ -18,6 +18,7 @@ A real-time multiplayer typing test application built with Next.js and Socket.IO
 - 🚧 **Live Player Status** - See other players' progress in real-time
 - 🚧 **Synchronized Start** - All players start simultaneously
 - 📋 **Leaderboard** - Track high scores and rankings
+- 📋 **Live Cursor** - Show other player's cursor positions in realtime
 
 ### UI Components
 
