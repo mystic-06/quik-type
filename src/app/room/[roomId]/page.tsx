@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import SetupPhase from "@/components/SetupPhase";
 import CountdownPhase from "@/components/CountdownPhase";
 import TypingArea from "@/components/TypingArea";
+import ResultPhase from "@/components/ResultPhase";
 import { useSocket } from "@/hooks/useSocket";
 
 export default function Room() {
@@ -16,11 +17,14 @@ export default function Room() {
     joinRoom,
     configureTest,
     toggleReady,
+    restartRoom,
+    submitResults,
     time,
     isTestActive,
     setTime,
     setTestStatus,
     testContent,
+    finalRankings,
   } = useSocket();
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [hasJoined, setHasJoined] = useState(false);
@@ -73,7 +77,31 @@ export default function Room() {
   }
 
   function handleTestFinish() {
+    console.log("handleTestFinish called - setting test status to false");
     setTestStatus(false);
+  }
+
+  function handleResultsSubmit(results: {
+    wpm: number;
+    rawWpm: number;
+    accuracy: number;
+    charactersTyped: number;
+    completionPercentage: number;
+  }) {
+    console.log("handleResultsSubmit called with results:", results);
+    console.log("Current phase before submission:", phase);
+    console.log("Current isTestActive before submission:", isTestActive);
+    submitResults(results);
+  }
+
+  function handlePlayAgain() {
+    if (isConnected && isHost) {
+      restartRoom();
+    } else {
+      // Reset mock state for offline mode
+      setMockParticipants(prev => prev.map(p => ({ ...p, isReady: false })));
+    }
+    console.log("Play again requested");
   }
 
   const handleReadyToggle = () => {
@@ -112,17 +140,23 @@ export default function Room() {
   const isHost = currentUser?.isHost || false;
 
   // Debug logging (can be removed in production)
-  if (process.env.NODE_ENV === "development") {
-    console.log("Room state debug:", {
-      isConnected,
-      hasRoomState: !!roomState,
-      currentUserId,
-      effectiveCurrentUserId,
-      participantsCount: participants.length,
-      currentUser,
-      isHost,
-    });
-  }
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log("Room state debug:", {
+        isConnected,
+        hasRoomState: !!roomState,
+        phase,
+        currentUserId,
+        effectiveCurrentUserId,
+        participantsCount: participants.length,
+        currentUser,
+        isHost,
+        isTestActive,
+        hasFinalRankings: !!finalRankings,
+        finalRankingsLength: finalRankings?.length || 0,
+      });
+    }
+  }, [isConnected, roomState, phase, currentUserId, effectiveCurrentUserId, participants.length, currentUser, isHost, isTestActive, finalRankings]);
 
   // Show connection status only briefly, then allow offline mode
   // Removed the blocking connection screen to allow offline mode
@@ -137,19 +171,24 @@ export default function Room() {
         {/* Connection Status */}
         <div className="text-center mb-6">
           <div
-            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${
-              isConnected
-                ? "bg-surface bg-opacity-20 text-accent-secondary"
-                : "bg-text-secondary bg-opacity-20 text-secondary"
-            }`}
+            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${isConnected
+              ? "bg-surface bg-opacity-20 text-accent-secondary"
+              : "bg-text-secondary bg-opacity-20 text-secondary"
+              }`}
           >
             <div
-              className={`w-2 h-2 rounded-full ${
-                isConnected ? "bg-accent-secondary" : "bg-text-secondary"
-              }`}
+              className={`w-2 h-2 rounded-full ${isConnected ? "bg-accent-secondary" : "bg-text-secondary"
+                }`}
             />
             {isConnected ? "Connected" : "Offline Mode"}
           </div>
+          
+          {/* Debug info in development */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="mt-2 text-xs text-secondary">
+              Phase: {phase} | Rankings: {finalRankings ? "Yes" : "No"} | Test Active: {isTestActive ? "Yes" : "No"}
+            </div>
+          )}
         </div>
 
         {phase === "setup" && (
@@ -171,23 +210,25 @@ export default function Room() {
           </div>
         )}
 
-        {phase === "test" && (
+        {/* Show results if we have rankings, regardless of phase */}
+        {finalRankings && finalRankings.length > 0 ? (
+          <ResultPhase
+            rankings={finalRankings}
+            currentUserId={effectiveCurrentUserId}
+            isHost={isHost}
+            onPlayAgain={handlePlayAgain}
+          />
+        ) : phase === "test" ? (
           <TypingArea
             time={time}
             isTestActive={isTestActive}
             testContent={testContent}
             onTestStart={handleTestStart}
             onTestFinish={handleTestFinish}
+            onResultsSubmit={handleResultsSubmit}
+            isMultiplayer={true}
           />
-        )}
-
-        {phase === "results" && (
-          <div className="text-center">
-            <div className="text-6xl font-bold text-accent-primary">
-              Results
-            </div>
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -10,14 +10,15 @@ A real-time multiplayer typing test application built with Next.js and Socket.IO
 - ✅ **Test Phase Management** - Custom hook for managing different test phases
 - ✅ **Socket.IO Integration** - Real-time communication setup
 - ✅ **Typing Test Engine** - Word generation and accuracy tracking
-- 🚧 **Real-time Results** - Live WPM and accuracy calculation
+- ✅ **Real-time Results** - Live WPM and accuracy calculation
 
 ### Multiplayer Features
 
 - ✅ **Room System** - Join/create typing rooms
+- ✅ **Synchronized Start** - All players start simultaneously
+- ✅ **Results Ranking** - WPM-based leaderboard after each test
+- ✅ **Result Submission** - Automatic result collection and ranking
 - 🚧 **Live Player Status** - See other players' progress in real-time
-- 🚧 **Synchronized Start** - All players start simultaneously
-- 📋 **Leaderboard** - Track high scores and rankings
 - 📋 **Live Cursor** - Show other player's cursor positions in realtime
 
 ### UI Components
@@ -26,6 +27,7 @@ A real-time multiplayer typing test application built with Next.js and Socket.IO
 - ✅ **Countdown Phase** - Pre-test countdown display
 - ✅ **Setup Phase** - Room configuration and player setup
 - ✅ **Results Display** - Post-test statistics and comparison
+- ✅ **Multiplayer Results** - Ranked leaderboard with WPM sorting
 - ✅ **Typing Area** - Main typing interface
 
 ## Tech Stack
@@ -103,7 +105,7 @@ src/
 
 ### Current Sprint
 
-- 🚧 Synchronized Start
+- 🚧 Live Player Status - Real-time progress tracking during tests
 
 ## Scripts
 

@@ -22,6 +22,21 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
+// Debug endpoint to check room states
+app.get("/debug/rooms", (req, res) => {
+  const rooms = Array.from(roomManager.rooms.entries()).map(([id, room]) => ({
+    id,
+    phase: room.phase,
+    participantCount: room.participants.size,
+    participants: Array.from(room.participants.values()).map(p => ({
+      username: p.username,
+      isReady: p.isReady,
+      hasResults: !!p.finalResults
+    }))
+  }));
+  res.json({ rooms, totalRooms: rooms.length });
+});
+
 const server = createServer(app);
 
 // Room management structure
@@ -118,7 +133,7 @@ const io = new Server(server, {
   cors: {
     origin:
       process.env.NODE_ENV === "production"
-        ? ["https://your-domain.com"] 
+        ? ["https://your-domain.com"]
         : ["http://localhost:3000"],
     methods: ["GET", "POST"],
     credentials: true,
@@ -182,6 +197,7 @@ io.on("connection", (socket) => {
           charactersTyped: 0,
           completionPercentage: 0,
         },
+        finalResults: null,
       };
 
       roomManager.addParticipant(roomId, participant);
@@ -269,14 +285,13 @@ io.on("connection", (socket) => {
       );
 
       console.log(
-        `${socket.username} is now ${
-          participant.isReady ? "ready" : "not ready"
+        `${socket.username} is now ${participant.isReady ? "ready" : "not ready"
         } in room ${socket.roomId}`
       );
 
       // Check if all participants are ready and start countdown if so
       const allParticipants = Array.from(room.participants.values());
-      const allReady = allParticipants.length > 1 && allParticipants.every((p) => p.isReady);
+      const allReady = allParticipants.length >= 1 && allParticipants.every((p) => p.isReady);
 
       if (allReady && room.phase === "setup") {
         console.log(
@@ -309,14 +324,56 @@ io.on("connection", (socket) => {
             );
             console.log(`Test started in room ${socket.roomId}`);
 
-            // Set timer to end the test
+            // Set a timeout to force end the test if not all players submit results
+            // This is a safety mechanism - normally results should be submitted by clients
             setTimeout(() => {
               if (room.phase === "test") {
+                console.log(`Force ending test in room ${socket.roomId} due to timeout`);
+
+                // Force submit results for players who haven't submitted yet
+                const allParticipants = Array.from(room.participants.values());
+                allParticipants.forEach(p => {
+                  if (!p.finalResults) {
+                    p.finalResults = {
+                      wpm: 0,
+                      rawWpm: 0,
+                      accuracy: 0,
+                      charactersTyped: 0,
+                      completionPercentage: 0,
+                      submittedAt: Date.now(),
+                    };
+                  }
+                });
+
+                // Create rankings and send them
+                const rankings = allParticipants
+                  .map(p => ({
+                    id: p.id,
+                    username: p.username,
+                    wpm: p.finalResults.wpm,
+                    rawWpm: p.finalResults.rawWpm,
+                    accuracy: p.finalResults.accuracy,
+                    charactersTyped: p.finalResults.charactersTyped,
+                    completionPercentage: p.finalResults.completionPercentage,
+                  }))
+                  .sort((a, b) => b.wpm - a.wpm)
+                  .map((player, index) => ({
+                    ...player,
+                    rank: index + 1,
+                  }));
+
                 room.phase = "results";
-                io.to(socket.roomId).emit("test-end");
-                console.log(`Test ended in room ${socket.roomId}`);
+
+                // Send room state update first, then rankings
+                io.to(socket.roomId).emit("room-state-updated", {
+                  ...room,
+                  participants: allParticipants,
+                });
+
+                io.to(socket.roomId).emit("final-rankings", rankings);
+                console.log(`Force-ended test rankings sent for room ${socket.roomId}`);
               }
-            }, (room.config.timerDuration+3) * 1000);
+            }, (room.config.timerDuration + 5) * 1000); // Give 5 extra seconds for result submission
           }
         }, 1000);
       }
@@ -325,6 +382,134 @@ io.on("connection", (socket) => {
       socket.emit("error", "Failed to toggle ready state");
     }
   });
+  // Handle test results submission
+  socket.on("submit-results", (results) => {
+    try {
+      console.log(`${socket.username} submitted results:`, results);
+
+      const room = roomManager.getRoom(socket.roomId);
+      if (!room) {
+        socket.emit("error", "Room not found");
+        return;
+      }
+
+      const participant = room.participants.get(socket.id);
+      if (!participant) {
+        socket.emit("error", "Participant not found in room");
+        return;
+      }
+
+      // Store final results
+      participant.finalResults = {
+        wpm: results.wpm || 0,
+        rawWpm: results.rawWpm || 0,
+        accuracy: results.accuracy || 0,
+        charactersTyped: results.charactersTyped || 0,
+        completionPercentage: results.completionPercentage || 0,
+        submittedAt: Date.now(),
+      };
+
+      console.log(`Results stored for ${socket.username}:`, participant.finalResults);
+
+      // Check if all participants have submitted results
+      const allParticipants = Array.from(room.participants.values());
+      const allSubmitted = allParticipants.every(p => p.finalResults !== null);
+
+      console.log(`Results check for room ${socket.roomId}:`, {
+        totalParticipants: allParticipants.length,
+        submittedCount: allParticipants.filter(p => p.finalResults !== null).length,
+        allSubmitted,
+        participantResults: allParticipants.map(p => ({
+          username: p.username,
+          hasResults: !!p.finalResults
+        }))
+      });
+
+      if (allSubmitted) {
+        // Create rankings based on WPM
+        const rankings = allParticipants
+          .map(p => ({
+            id: p.id,
+            username: p.username,
+            wpm: p.finalResults.wpm,
+            rawWpm: p.finalResults.rawWpm,
+            accuracy: p.finalResults.accuracy,
+            charactersTyped: p.finalResults.charactersTyped,
+            completionPercentage: p.finalResults.completionPercentage,
+          }))
+          .sort((a, b) => b.wpm - a.wpm) // Sort by WPM descending
+          .map((player, index) => ({
+            ...player,
+            rank: index + 1,
+          }));
+
+        // Transition to results phase and send final rankings
+        room.phase = "results";
+
+        // Send room state update first, then rankings
+        io.to(socket.roomId).emit("room-state-updated", {
+          ...room,
+          participants: allParticipants,
+        });
+
+        io.to(socket.roomId).emit("final-rankings", rankings);
+        console.log(`Final rankings sent for room ${socket.roomId}:`, rankings);
+
+        // Reset participants' ready state and results for potential next round
+        setTimeout(() => {
+          allParticipants.forEach(p => {
+            p.isReady = false;
+            p.finalResults = null;
+          });
+          room.phase = "setup";
+          console.log(`Room ${socket.roomId} reset for next round`);
+        }, 10000); // Reset after 10 seconds
+      }
+    } catch (error) {
+      console.error("Error in submit-results:", error);
+      socket.emit("error", "Failed to submit results");
+    }
+  });
+
+  // Handle restart room (host only)
+  socket.on("restart-room", () => {
+    try {
+      console.log(`${socket.username} wants to restart room`);
+
+      const room = roomManager.getRoom(socket.roomId);
+      if (!room) {
+        socket.emit("error", "Room not found");
+        return;
+      }
+
+      if (socket.id !== room.hostId) {
+        socket.emit("error", "Only host can restart room");
+        return;
+      }
+
+      // Reset all participants
+      const allParticipants = Array.from(room.participants.values());
+      allParticipants.forEach(p => {
+        p.isReady = false;
+        p.finalResults = null;
+      });
+
+      // Reset room phase
+      room.phase = "setup";
+
+      // Notify all participants about the restart
+      io.to(socket.roomId).emit("room-restarted", {
+        ...room,
+        participants: allParticipants,
+      });
+
+      console.log(`Room ${socket.roomId} restarted by host`);
+    } catch (error) {
+      console.error("Error in restart-room:", error);
+      socket.emit("error", "Failed to restart room");
+    }
+  });
+
   // Handle leave room
   socket.on("leave-room", () => {
     handleDisconnection(socket);

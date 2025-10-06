@@ -56,6 +56,7 @@ export default function Home() {
 
       <TypingArea 
         time={activeTime} 
+        testContent=""
         isTestActive={isTestActive}
         onTestStart={handleTestStart}
         onTestFinish={handleTestFinish}

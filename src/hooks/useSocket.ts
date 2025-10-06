@@ -20,6 +20,17 @@ interface RoomState {
   participants: Participant[];
 }
 
+interface PlayerResult {
+  id: string;
+  username: string;
+  wpm: number;
+  rawWpm: number;
+  accuracy: number;
+  charactersTyped: number;
+  completionPercentage: number;
+  rank: number;
+}
+
 interface UseSocketReturn {
   socket: Socket | null;
   isConnected: boolean;
@@ -27,13 +38,22 @@ interface UseSocketReturn {
   joinRoom: (roomId: string, username: string) => void;
   configureTest: (config: { timerDuration: number }) => void;
   toggleReady: () => void;
+  restartRoom: () => void;
   leaveRoom: () => void;
+  submitResults: (results: {
+    wpm: number;
+    rawWpm: number;
+    accuracy: number;
+    charactersTyped: number;
+    completionPercentage: number;
+  }) => void;
 
   time: number;
   isTestActive: boolean;
   setTime: React.Dispatch<React.SetStateAction<number>>;
   setTestStatus: React.Dispatch<React.SetStateAction<boolean>>;
   testContent: string;
+  finalRankings: PlayerResult[] | null;
 }
 
 export function useSocket(): UseSocketReturn {
@@ -43,6 +63,7 @@ export function useSocket(): UseSocketReturn {
   const [time, setTime] = useState(15);
   const [isTestActive, setTestStatus] = useState(false);
   const [testContent, setTestContent] = useState<string>("");
+  const [finalRankings, setFinalRankings] = useState<PlayerResult[] | null>(null);
 
   // Generate fallback content for offline mode
   const fallbackContent = useMemo(() => (generate(200) as string[]).join(" "), []);
@@ -160,16 +181,25 @@ export function useSocket(): UseSocketReturn {
       });
     });
 
-    socket.on("test-end", () => {
-      console.log("Test ended");
+    // Note: test-end is no longer used - clients handle their own timers
+    // and submit results when complete. The server transitions to results
+    // phase when all results are received.
+
+    socket.on("room-state-updated", (roomState: RoomState) => {
+      console.log("Room state updated:", roomState);
+      setRoomState(roomState);
+    });
+
+    socket.on("final-rankings", (rankings: PlayerResult[]) => {
+      console.log("Final rankings received:", rankings);
+      setFinalRankings(rankings);
+    });
+
+    socket.on("room-restarted", (roomState: RoomState) => {
+      console.log("Room restarted:", roomState);
+      setRoomState(roomState);
+      setFinalRankings(null);
       setTestStatus(false);
-      setRoomState((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          phase: "results",
-        };
-      });
     });
 
     socket.on("error", (message: string) => {
@@ -209,6 +239,29 @@ export function useSocket(): UseSocketReturn {
     }
   };
 
+  const submitResults = (results: {
+    wpm: number;
+    rawWpm: number;
+    accuracy: number;
+    charactersTyped: number;
+    completionPercentage: number;
+  }) => {
+    if (socketRef.current && isConnected) {
+      console.log('Submitting results:', results);
+      socketRef.current.emit("submit-results", results);
+      
+      // Stop the test locally when results are submitted
+      setTestStatus(false);
+    }
+  };
+
+  const restartRoom = () => {
+    if (socketRef.current && isConnected) {
+      console.log('Restarting room');
+      socketRef.current.emit("restart-room");
+    }
+  };
+
   const leaveRoom = () => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit("leave-room");
@@ -223,11 +276,14 @@ export function useSocket(): UseSocketReturn {
     joinRoom,
     configureTest,
     toggleReady,
+    restartRoom,
+    submitResults,
     leaveRoom,
     time,
     isTestActive,
     setTime,
     setTestStatus,
-    testContent: testContent || fallbackContent
+    testContent: testContent || fallbackContent,
+    finalRankings
   };
 }

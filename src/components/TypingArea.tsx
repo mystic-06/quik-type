@@ -7,6 +7,14 @@ interface TypingAreaProps {
   testContent: string;
   onTestStart: () => void;
   onTestFinish: () => void;
+  onResultsSubmit?: (results: {
+    wpm: number;
+    rawWpm: number;
+    accuracy: number;
+    charactersTyped: number;
+    completionPercentage: number;
+  }) => void;
+  isMultiplayer?: boolean;
 }
 
 type CharStatus = "untyped" | "correct" | "incorrect";
@@ -17,6 +25,8 @@ export default function TypingArea({
   testContent,
   onTestStart,
   onTestFinish,
+  onResultsSubmit,
+  isMultiplayer = false,
 }: TypingAreaProps) {
   // Generate test text once
   const testText = useMemo(() => {
@@ -39,6 +49,7 @@ export default function TypingArea({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const charRefs = useRef<Map<number, HTMLSpanElement>>(new Map());
+  const resultsSubmittedRef = useRef<boolean>(false);
 
   // Derived state using memos for performance
   const charStatuses = useMemo((): CharStatus[] => {
@@ -74,25 +85,67 @@ export default function TypingArea({
     const typedCount = charStatuses.filter((s) => s !== "untyped").length;
     const correctCount = charStatuses.filter((s) => s === "correct").length;
 
+    // Calculate completion percentage
+    const completionPercentage = Math.round((typedCount / fullText.length) * 100);
+
     if (typedCount === 0) {
-      return { accuracy: 0, rawWpm: 0, wpm: 0 };
+      return { 
+        accuracy: 0, 
+        rawWpm: 0, 
+        wpm: 0, 
+        charactersTyped: 0,
+        completionPercentage: 0
+      };
     }
 
-    const elapsedTime = hasStarted ? (time - timeLeft) / 60 : time / 60;
-    if (elapsedTime === 0) {
-      return { accuracy: 0, rawWpm: 0, wpm: 0 };
+    // Calculate accuracy
+    const accuracy = Math.round((correctCount / typedCount) * 100 * 10) / 10;
+
+    // Calculate elapsed time in minutes
+    let elapsedSeconds;
+    if (hasStarted) {
+      elapsedSeconds = time - timeLeft;
+    } else if (typedCount > 0) {
+      // If user typed but test hasn't "officially" started, use a minimum time
+      elapsedSeconds = Math.max(time - timeLeft, 1);
+    } else {
+      elapsedSeconds = 0;
+    }
+    
+    // For WPM calculation, use minimum of 3 seconds to avoid unrealistic high WPM from very short typing bursts
+    const elapsedMinutes = Math.max(elapsedSeconds / 60, 0.05); // Minimum 0.05 minutes (3 seconds)
+
+    // Calculate WPM metrics
+    let rawWpm = 0;
+    let wpm = 0;
+    
+    if (elapsedSeconds > 0) {
+      rawWpm = Math.round((typedCount / 5) / elapsedMinutes);
+      wpm = Math.round((correctCount / 5) / elapsedMinutes);
     }
 
-    const accuracy = (correctCount / typedCount) * 100;
-    const rawWpm = typedCount / 5 / elapsedTime;
-    const wpm = correctCount / 5 / elapsedTime;
+    console.log('Metrics calculation:', {
+      typedCount,
+      correctCount,
+      elapsedSeconds,
+      elapsedMinutes,
+      hasStarted,
+      timeLeft,
+      time,
+      rawWpm,
+      wpm,
+      accuracy,
+      completionPercentage
+    });
 
     return {
-      accuracy: Math.round(accuracy * 10) / 10,
-      rawWpm: Math.round(rawWpm),
-      wpm: Math.round(wpm),
+      accuracy,
+      rawWpm,
+      wpm,
+      charactersTyped: typedCount,
+      completionPercentage
     };
-  }, [charStatuses, time, timeLeft, hasStarted]);
+  }, [charStatuses, time, timeLeft, hasStarted, fullText.length]);
 
   const isComplete = timeLeft === 0 || userInput.length === fullText.length;
 
@@ -100,6 +153,14 @@ export default function TypingArea({
   useEffect(() => {
     setTimeLeft(time);
   }, [time]);
+
+  // Reset results submitted flag when test becomes active
+  useEffect(() => {
+    if (isTestActive) {
+      resultsSubmittedRef.current = false;
+      // Don't reset hasStarted here - let it be set when user actually starts typing
+    }
+  }, [isTestActive]);
 
   // Handle timer
   useEffect(() => {
@@ -127,6 +188,33 @@ export default function TypingArea({
     };
   }, [isTestActive, timeLeft, onTestFinish]);
 
+  // Submit results when test completes in multiplayer mode
+  useEffect(() => {
+    if (isComplete && isMultiplayer && onResultsSubmit && !resultsSubmittedRef.current) {
+      const resultsToSubmit = {
+        wpm: metrics.wpm,
+        rawWpm: metrics.rawWpm,
+        accuracy: metrics.accuracy,
+        charactersTyped: metrics.charactersTyped,
+        completionPercentage: metrics.completionPercentage,
+      };
+      
+      console.log('Submitting results due to test completion:', {
+        timeLeft,
+        userInputLength: userInput.length,
+        fullTextLength: fullText.length,
+        isComplete,
+        hasStarted,
+        metrics,
+        resultsToSubmit,
+        reason: timeLeft === 0 ? 'timer expired' : 'text completed'
+      });
+      
+      resultsSubmittedRef.current = true;
+      onResultsSubmit(resultsToSubmit);
+    }
+  }, [isComplete, isMultiplayer, onResultsSubmit, metrics, timeLeft, userInput.length, fullText.length, hasStarted]);
+
   // Handle line scrolling
   useEffect(() => {
     const activeChar = charRefs.current.get(currentIndex);
@@ -152,10 +240,12 @@ export default function TypingArea({
         return;
       }
 
-      // Start test on first character
-      if (!isTestActive && value.length > 0) {
+      // Start test on first character (single player) or mark as started (multiplayer)
+      if (value.length > 0 && !hasStarted) {
         setHasStarted(true);
-        onTestStart();
+        if (!isTestActive) {
+          onTestStart();
+        }
       }
 
       setUserInput(value);
@@ -195,6 +285,7 @@ export default function TypingArea({
     setTimeLeft(time);
     setLineOffset(0);
     setHasStarted(false);
+    resultsSubmittedRef.current = false;
     inputRef.current?.focus();
   }, [time]);
 
@@ -258,8 +349,8 @@ export default function TypingArea({
         </div>
       </div>
 
-      {/* Results */}
-      {isComplete && (
+      {/* Results - Only show in single player mode */}
+      {isComplete && !isMultiplayer && (
         <div className="mt-6 text-center space-y-4">
           <div className="bg-surface rounded-lg p-4 shadow-md">
             <h3 className="text-lg font-semibold mb-4 text-primary">
@@ -291,6 +382,40 @@ export default function TypingArea({
             >
               Try Again
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Multiplayer completion message */}
+      {isComplete && isMultiplayer && (
+        <div className="mt-6 text-center">
+          <div className="bg-surface rounded-lg p-6">
+            <h3 className="text-xl font-semibold mb-2 text-primary">
+              Test Complete!
+            </h3>
+            <p className="text-secondary mb-4">
+              Your results have been submitted. Waiting for other players...
+            </p>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-gray-400">WPM</p>
+                <p className="text-2xl font-bold text-blue-400">
+                  {metrics.wpm}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Raw WPM</p>
+                <p className="text-2xl font-bold text-blue-300">
+                  {metrics.rawWpm}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Accuracy</p>
+                <p className="text-2xl font-bold text-green-300">
+                  {metrics.accuracy}%
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
