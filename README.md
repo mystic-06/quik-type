@@ -60,19 +60,78 @@ cd speed-typing
 npm install
 ```
 
-3. Start the development server
+3. Copy environment variables
+
+```bash
+cp .env.example .env.local
+```
+
+### Development
+
+1. Start the Socket.IO server
+
+```bash
+npm run server:dev
+```
+
+2. Start the Next.js development server
 
 ```bash
 npm run dev
 ```
 
-4. Start the Socket.IO server
+3. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+### Production
+
+1. Build the application
 
 ```bash
-node server/index.js
+npm run build
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+2. Start the production server
+
+```bash
+npm start
+```
+
+3. Start the Socket.IO server
+
+```bash
+npm run server
+```
+
+## Deployment
+
+### Environment Variables
+
+Set the following environment variables for production:
+
+- `NEXT_PUBLIC_SOCKET_URL`: Your Socket.IO server URL
+- `PORT`: Server port (default: 3001)
+- `NODE_ENV`: Set to "production"
+
+### Docker Deployment (Optional)
+
+Create a `Dockerfile`:
+
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+EXPOSE 3000 3001
+CMD ["sh", "-c", "npm run server & npm start"]
+```
+
+### Vercel/Netlify Deployment
+
+1. Deploy the Next.js app to Vercel/Netlify
+2. Deploy the Socket.IO server separately (Railway, Render, etc.)
+3. Update `NEXT_PUBLIC_SOCKET_URL` to point to your server
 
 ## Project Structure
 

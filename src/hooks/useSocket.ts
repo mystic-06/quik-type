@@ -82,12 +82,10 @@ export function useSocket(): UseSocketReturn {
 
     // Connection event handlers
     socket.on("connect", () => {
-      console.log("Connected to server", socket.id);
       setIsConnected(true);
     });
 
     socket.on("disconnect", () => {
-      console.log("Disconnected from server");
       setIsConnected(false);
     });
 
@@ -98,13 +96,10 @@ export function useSocket(): UseSocketReturn {
 
     // Room event handlers
     socket.on("room-joined", (roomState: RoomState) => {
-      console.log("Room joined event received:", roomState);
       setRoomState(roomState);
-      console.log("Room state updated");
     });
 
     socket.on("participant-joined", (participant: Participant) => {
-      console.log("Participant joined:", participant);
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -115,7 +110,6 @@ export function useSocket(): UseSocketReturn {
     });
 
     socket.on("participant-left", (participantId: string) => {
-      console.log("Participant left:", participantId);
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -126,7 +120,6 @@ export function useSocket(): UseSocketReturn {
     });
 
     socket.on("config-updated", (config: { timerDuration: number }) => {
-      console.log("Config updated:", config);
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -139,7 +132,6 @@ export function useSocket(): UseSocketReturn {
     socket.on(
       "ready-state-changed",
       (participantId: string, isReady: boolean) => {
-        console.log("Ready state changed:", participantId, isReady);
         setRoomState((prev) => {
           if (!prev) return prev;
           return {
@@ -153,7 +145,6 @@ export function useSocket(): UseSocketReturn {
     );
 
     socket.on("countdown-start", (countdown: number) => {
-      console.log("Countdown started:", countdown);
       setRoomState((prev) => {
         if (!prev) return prev;
         return {
@@ -164,11 +155,9 @@ export function useSocket(): UseSocketReturn {
     });
 
     socket.on("countdown-update", (countdown: number) => {
-      console.log("Countdown update:", countdown);
     });
 
     socket.on("test-start", (testText: string, duration: number) => {
-      console.log("Test started:", testText, duration);
       setTestContent(testText);
       setTime(duration);
       setTestStatus(true);
@@ -186,17 +175,14 @@ export function useSocket(): UseSocketReturn {
     // phase when all results are received.
 
     socket.on("room-state-updated", (roomState: RoomState) => {
-      console.log("Room state updated:", roomState);
       setRoomState(roomState);
     });
 
     socket.on("final-rankings", (rankings: PlayerResult[]) => {
-      console.log("Final rankings received:", rankings);
       setFinalRankings(rankings);
     });
 
     socket.on("room-restarted", (roomState: RoomState) => {
-      console.log("Room restarted:", roomState);
       setRoomState(roomState);
       setFinalRankings(null);
       setTestStatus(false);
@@ -214,11 +200,8 @@ export function useSocket(): UseSocketReturn {
   }, []);
 
   const joinRoom = (roomId: string, username: string) => {
-    console.log('joinRoom called', { roomId, username, socketExists: !!socketRef.current });
     if (socketRef.current) {
-      console.log('Connecting socket...');
       socketRef.current.connect();
-      console.log('Emitting join-room event...');
       socketRef.current.emit("join-room", roomId, username);
     }
   };
@@ -230,12 +213,8 @@ export function useSocket(): UseSocketReturn {
   };
 
   const toggleReady = () => {
-    console.log('toggleReady called', { socketExists: !!socketRef.current, isConnected });
     if (socketRef.current && isConnected) {
-      console.log('Emitting ready-toggle event');
       socketRef.current.emit("ready-toggle");
-    } else {
-      console.log('Cannot emit ready-toggle - socket not connected');
     }
   };
 
@@ -247,17 +226,13 @@ export function useSocket(): UseSocketReturn {
     completionPercentage: number;
   }) => {
     if (socketRef.current && isConnected) {
-      console.log('Submitting results:', results);
       socketRef.current.emit("submit-results", results);
-      
-      // Stop the test locally when results are submitted
       setTestStatus(false);
     }
   };
 
   const restartRoom = () => {
     if (socketRef.current && isConnected) {
-      console.log('Restarting room');
       socketRef.current.emit("restart-room");
     }
   };

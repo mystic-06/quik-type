@@ -60,7 +60,7 @@ class RoomManager {
     };
 
     this.rooms.set(roomId, room);
-    console.log(`Room ${roomId} created by ${hostId}`);
+
     return room;
   }
 
@@ -71,7 +71,6 @@ class RoomManager {
   deleteRoom(roomId) {
     const deleted = this.rooms.delete(roomId);
     if (deleted) {
-      console.log(`Room ${roomId} deleted`);
     }
     return deleted;
   }
@@ -81,7 +80,7 @@ class RoomManager {
     if (!room) return null;
 
     room.participants.set(participant.id, participant);
-    console.log(`Participant ${participant.username} added to room ${roomId}`);
+
     return room;
   }
 
@@ -103,13 +102,10 @@ class RoomManager {
       const newHost = room.participants.values().next().value;
       room.hostId = newHost.id;
       newHost.isHost = true;
-      console.log(`Host transferred to ${newHost.username} in room ${roomId}`);
+
     }
 
     if (participant) {
-      console.log(
-        `Participant ${participant.username} removed from room ${roomId}`
-      );
     }
 
     return room;
@@ -149,12 +145,12 @@ const io = new Server(server, {
 
 // Connection handling
 io.on("connection", (socket) => {
-  console.log(`User connected: ${socket.id} from ${socket.handshake.address}`);
+
 
   // Handle join-room event
   socket.on("join-room", (roomId, username) => {
     try {
-      console.log(`${username} (${socket.id}) wants to join room ${roomId}`);
+
 
       // Validate input
       if (!roomId || !username) {
@@ -216,7 +212,7 @@ io.on("connection", (socket) => {
       // Notify other participants
       socket.to(roomId).emit("participant-joined", participant);
 
-      console.log(`${username} successfully joined room ${roomId}`);
+
     } catch (error) {
       console.error("Error in join-room:", error);
       socket.emit("error", "Failed to join room");
@@ -226,7 +222,7 @@ io.on("connection", (socket) => {
   // Handle test configuration
   socket.on("configure-test", (newConfig) => {
     try {
-      console.log(`${socket.username} wants to change config:`, newConfig);
+
 
       const room = roomManager.getRoom(socket.roomId);
       if (!room) {
@@ -250,7 +246,7 @@ io.on("connection", (socket) => {
 
       // Broadcast config update to all participants
       io.to(socket.roomId).emit("config-updated", room.config);
-      console.log(`Host updated config in room ${socket.roomId}:`, room.config);
+
     } catch (error) {
       console.error("Error in configure-test:", error);
       socket.emit("error", "Failed to update configuration");
@@ -260,7 +256,7 @@ io.on("connection", (socket) => {
   // Handle ready toggle
   socket.on("ready-toggle", () => {
     try {
-      console.log(`${socket.username} wants to toggle ready state`);
+
 
       const room = roomManager.getRoom(socket.roomId);
       if (!room) {
@@ -284,19 +280,14 @@ io.on("connection", (socket) => {
         participant.isReady
       );
 
-      console.log(
-        `${socket.username} is now ${participant.isReady ? "ready" : "not ready"
-        } in room ${socket.roomId}`
-      );
+
 
       // Check if all participants are ready and start countdown if so
       const allParticipants = Array.from(room.participants.values());
       const allReady = allParticipants.length >= 1 && allParticipants.every((p) => p.isReady);
 
       if (allReady && room.phase === "setup") {
-        console.log(
-          `All participants ready in room ${socket.roomId}, starting countdown`
-        );
+
         room.phase = "countdown";
 
         // Start 3-second countdown
@@ -322,13 +313,13 @@ io.on("connection", (socket) => {
               testText,
               room.config.timerDuration
             );
-            console.log(`Test started in room ${socket.roomId}`);
+
 
             // Set a timeout to force end the test if not all players submit results
             // This is a safety mechanism - normally results should be submitted by clients
             setTimeout(() => {
               if (room.phase === "test") {
-                console.log(`Force ending test in room ${socket.roomId} due to timeout`);
+
 
                 // Force submit results for players who haven't submitted yet
                 const allParticipants = Array.from(room.participants.values());
@@ -371,7 +362,7 @@ io.on("connection", (socket) => {
                 });
 
                 io.to(socket.roomId).emit("final-rankings", rankings);
-                console.log(`Force-ended test rankings sent for room ${socket.roomId}`);
+
               }
             }, (room.config.timerDuration + 5) * 1000); // Give 5 extra seconds for result submission
           }
@@ -385,7 +376,7 @@ io.on("connection", (socket) => {
   // Handle test results submission
   socket.on("submit-results", (results) => {
     try {
-      console.log(`${socket.username} submitted results:`, results);
+
 
       const room = roomManager.getRoom(socket.roomId);
       if (!room) {
@@ -409,21 +400,13 @@ io.on("connection", (socket) => {
         submittedAt: Date.now(),
       };
 
-      console.log(`Results stored for ${socket.username}:`, participant.finalResults);
+
 
       // Check if all participants have submitted results
       const allParticipants = Array.from(room.participants.values());
       const allSubmitted = allParticipants.every(p => p.finalResults !== null);
 
-      console.log(`Results check for room ${socket.roomId}:`, {
-        totalParticipants: allParticipants.length,
-        submittedCount: allParticipants.filter(p => p.finalResults !== null).length,
-        allSubmitted,
-        participantResults: allParticipants.map(p => ({
-          username: p.username,
-          hasResults: !!p.finalResults
-        }))
-      });
+
 
       if (allSubmitted) {
         // Create rankings based on WPM
@@ -453,7 +436,7 @@ io.on("connection", (socket) => {
         });
 
         io.to(socket.roomId).emit("final-rankings", rankings);
-        console.log(`Final rankings sent for room ${socket.roomId}:`, rankings);
+
 
         // Reset participants' ready state and results for potential next round
         setTimeout(() => {
@@ -462,7 +445,7 @@ io.on("connection", (socket) => {
             p.finalResults = null;
           });
           room.phase = "setup";
-          console.log(`Room ${socket.roomId} reset for next round`);
+
         }, 10000); // Reset after 10 seconds
       }
     } catch (error) {
@@ -474,7 +457,7 @@ io.on("connection", (socket) => {
   // Handle restart room (host only)
   socket.on("restart-room", () => {
     try {
-      console.log(`${socket.username} wants to restart room`);
+
 
       const room = roomManager.getRoom(socket.roomId);
       if (!room) {
@@ -503,7 +486,7 @@ io.on("connection", (socket) => {
         participants: allParticipants,
       });
 
-      console.log(`Room ${socket.roomId} restarted by host`);
+
     } catch (error) {
       console.error("Error in restart-room:", error);
       socket.emit("error", "Failed to restart room");
@@ -517,7 +500,7 @@ io.on("connection", (socket) => {
 
   // Handle disconnection
   socket.on("disconnect", (reason) => {
-    console.log(`User ${socket.id} disconnected: ${reason}`);
+
     handleDisconnection(socket);
   });
 
@@ -548,7 +531,7 @@ function handleDisconnection(socket) {
     }
 
     socket.leave(socket.roomId);
-    console.log(`${socket.username || socket.id} left room ${socket.roomId}`);
+
   } catch (error) {
     console.error("Error handling disconnection:", error);
   }

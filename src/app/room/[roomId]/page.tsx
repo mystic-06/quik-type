@@ -77,7 +77,6 @@ export default function Room() {
   }
 
   function handleTestFinish() {
-    console.log("handleTestFinish called - setting test status to false");
     setTestStatus(false);
   }
 
@@ -88,9 +87,6 @@ export default function Room() {
     charactersTyped: number;
     completionPercentage: number;
   }) {
-    console.log("handleResultsSubmit called with results:", results);
-    console.log("Current phase before submission:", phase);
-    console.log("Current isTestActive before submission:", isTestActive);
     submitResults(results);
   }
 
@@ -98,30 +94,18 @@ export default function Room() {
     if (isConnected && isHost) {
       restartRoom();
     } else {
-      // Reset mock state for offline mode
       setMockParticipants(prev => prev.map(p => ({ ...p, isReady: false })));
     }
-    console.log("Play again requested");
   }
 
   const handleReadyToggle = () => {
-    console.log("Ready toggle clicked!", {
-      isConnected,
-      effectiveCurrentUserId,
-      roomState,
-    });
-
     if (isConnected && roomState) {
-      console.log("Calling toggleReady via socket");
       toggleReady();
     } else {
-      console.log("Updating mock participants for offline mode");
-      // Update mock participants for offline mode
       setMockParticipants((prev) => {
         const updated = prev.map((p) =>
           p.id === effectiveCurrentUserId ? { ...p, isReady: !p.isReady } : p
         );
-        console.log("Updated mock participants:", updated);
         return updated;
       });
     }
@@ -139,27 +123,7 @@ export default function Room() {
   const currentUser = participants.find((p) => p.id === effectiveCurrentUserId);
   const isHost = currentUser?.isHost || false;
 
-  // Debug logging (can be removed in production)
-  useEffect(() => {
-    if (process.env.NODE_ENV === "development") {
-      console.log("Room state debug:", {
-        isConnected,
-        hasRoomState: !!roomState,
-        phase,
-        currentUserId,
-        effectiveCurrentUserId,
-        participantsCount: participants.length,
-        currentUser,
-        isHost,
-        isTestActive,
-        hasFinalRankings: !!finalRankings,
-        finalRankingsLength: finalRankings?.length || 0,
-      });
-    }
-  }, [isConnected, roomState, phase, currentUserId, effectiveCurrentUserId, participants.length, currentUser, isHost, isTestActive, finalRankings]);
 
-  // Show connection status only briefly, then allow offline mode
-  // Removed the blocking connection screen to allow offline mode
 
   return (
     <div className="min-h-screen bg-background px-4 py-8">
@@ -182,13 +146,6 @@ export default function Room() {
             />
             {isConnected ? "Connected" : "Offline Mode"}
           </div>
-          
-          {/* Debug info in development */}
-          {process.env.NODE_ENV === "development" && (
-            <div className="mt-2 text-xs text-secondary">
-              Phase: {phase} | Rankings: {finalRankings ? "Yes" : "No"} | Test Active: {isTestActive ? "Yes" : "No"}
-            </div>
-          )}
         </div>
 
         {phase === "setup" && (
