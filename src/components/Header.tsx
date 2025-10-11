@@ -44,7 +44,7 @@ export default function Header() {
         </nav>
         <div className="hidden md:flex items-center space-x-4">
           <Link
-            href="https://github.com/your-repo"
+            href="https://github.com/mystic-06/quik-type"
             target="_blank"
             rel="noopener noreferrer"
           >
