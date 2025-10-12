@@ -11,7 +11,7 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? ["https://your-domain.com"]
+        ? process.env.FRONTEND_URL?.split(',') || ["https://speed-typing-kappa.vercel.app"]
         : ["http://localhost:3000"],
     credentials: true,
   })
@@ -129,7 +129,7 @@ const io = new Server(server, {
   cors: {
     origin:
       process.env.NODE_ENV === "production"
-        ? ["https://your-domain.com"]
+        ? process.env.FRONTEND_URL?.split(',') || ["https://speed-typing-kappa.vercel.app"]
         : ["http://localhost:3000"],
     methods: ["GET", "POST"],
     credentials: true,
