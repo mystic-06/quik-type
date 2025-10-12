@@ -107,8 +107,8 @@ export default function ResultPhase({ rankings, currentUserId, isHost = false, o
               <div
                 key={player.id}
                 className={`flex items-center justify-between p-4 rounded-lg transition-all duration-200 ${isCurrentUser
-                    ? "bg-accent-secondary bg-opacity-20 border-2 border-accent-primary"
-                    : "bg-background hover:bg-surface"
+                  ? "bg-accent-secondary bg-opacity-20 border-2 border-accent-primary"
+                  : "bg-background hover:bg-surface"
                   }`}
               >
                 <div className="flex items-center gap-4">

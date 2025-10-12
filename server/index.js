@@ -11,7 +11,7 @@ app.use(
   cors({
     origin:
       process.env.NODE_ENV === "production"
-        ? process.env.FRONTEND_URL?.split(',') || ["https://speed-typing-kappa.vercel.app"]
+        ? process.env.FRONTEND_URL?.split(',') || ["https://quik-type.vercel.app"]
         : ["http://localhost:3000"],
     credentials: true,
   })
