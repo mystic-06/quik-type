@@ -6,6 +6,7 @@ import CountdownPhase from "@/components/CountdownPhase";
 import TypingArea from "@/components/TypingArea";
 import ResultPhase from "@/components/ResultPhase";
 import { useSocket } from "@/hooks/useSocket";
+import { Copy, Check, Wifi, WifiOff } from "lucide-react";
 
 export default function Room() {
   const params = useParams();
@@ -28,6 +29,7 @@ export default function Room() {
   } = useSocket();
   const [currentUserId, setCurrentUserId] = useState<string>("");
   const [hasJoined, setHasJoined] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [mockParticipants, setMockParticipants] = useState(() => [
     {
       id: "mock-1",
@@ -47,7 +49,6 @@ export default function Room() {
   ]);
   const [mockConfig, setMockConfig] = useState({ timerDuration: 15 });
 
-  // Join room on component mount
   useEffect(() => {
     const username = localStorage.getItem("username") || "Player";
     if (!hasJoined && roomId) {
@@ -56,7 +57,6 @@ export default function Room() {
     }
   }, [roomId, joinRoom, hasJoined]);
 
-  // Set current user ID when socket connects
   useEffect(() => {
     if (socket?.id) {
       setCurrentUserId(socket.id);
@@ -67,7 +67,6 @@ export default function Room() {
     if (isConnected) {
       configureTest(config);
     } else {
-      // Update mock config for offline mode
       setMockConfig(config);
     }
   };
@@ -94,7 +93,7 @@ export default function Room() {
     if (isConnected && isHost) {
       restartRoom();
     } else {
-      setMockParticipants(prev => prev.map(p => ({ ...p, isReady: false })));
+      setMockParticipants((prev) => prev.map((p) => ({ ...p, isReady: false })));
     }
   }
 
@@ -111,40 +110,65 @@ export default function Room() {
     }
   };
 
-  // Use socket room state or fallback to mock data for development
+  const handleCopyRoomCode = async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textArea = document.createElement("textarea");
+      textArea.value = roomId;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   const phase = roomState?.phase || "setup";
   const roomConfig = roomState?.config || mockConfig;
   const participants =
-    isConnected && roomState?.participants
-      ? roomState.participants
-      : mockParticipants;
+    isConnected && roomState?.participants ? roomState.participants : mockParticipants;
   const effectiveCurrentUserId = currentUserId || "mock-1";
 
   const currentUser = participants.find((p) => p.id === effectiveCurrentUserId);
   const isHost = currentUser?.isHost || false;
 
-
-
   return (
-    <div className="min-h-screen bg-background px-4 py-8">
+    <div className="min-h-[80vh] py-8 animate-fade-in-up">
       <div className="max-w-6xl mx-auto">
-        <h1 className="text-4xl font-bold text-center text-primary mb-4">
-          Room: <span className="text-accent-primary">{roomId}</span>
-        </h1>
-
-        {/* Connection Status */}
-        <div className="text-center mb-6">
-          <div
-            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm ${isConnected
-              ? "bg-surface bg-opacity-20 text-accent-secondary"
-              : "bg-text-secondary bg-opacity-20 text-secondary"
-              }`}
+        {/* Room header */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
+          {/* Room code badge */}
+          <button
+            onClick={handleCopyRoomCode}
+            className="nb-card-flat flex items-center gap-3 px-5 py-2.5 cursor-pointer hover:shadow-[var(--shadow-sm)] transition-all duration-100 group/copy"
           >
-            <div
-              className={`w-2 h-2 rounded-full ${isConnected ? "bg-accent-secondary" : "bg-text-secondary"
-                }`}
-            />
-            {isConnected ? "Connected" : "Offline Mode"}
+            <span className="text-[var(--ts-xs)] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+              Room
+            </span>
+            <span className="text-[var(--ts-xl)] font-black font-mono text-[var(--secondary)] tracking-widest">
+              {roomId}
+            </span>
+            {copied ? (
+              <Check className="w-4 h-4 text-[var(--success)]" />
+            ) : (
+              <Copy className="w-4 h-4 text-[var(--text-muted)] group-hover/copy:text-[var(--text)]" />
+            )}
+          </button>
+
+          {/* Connection pill */}
+          <div
+            className={`nb-badge ${
+              isConnected
+                ? "bg-[var(--success)] text-white"
+                : "bg-[var(--surface-alt)] text-[var(--text-muted)]"
+            }`}
+          >
+            {isConnected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+            {isConnected ? "Connected" : "Offline"}
           </div>
         </div>
 
@@ -159,15 +183,8 @@ export default function Room() {
           />
         )}
 
-        {phase === "countdown" && (
-          <div className="text-center">
-            <div className="text-6xl font-bold text-accent-primary">
-              <CountdownPhase />
-            </div>
-          </div>
-        )}
+        {phase === "countdown" && <CountdownPhase />}
 
-        {/* Show results if we have rankings, regardless of phase */}
         {finalRankings && finalRankings.length > 0 ? (
           <ResultPhase
             rankings={finalRankings}
@@ -176,15 +193,17 @@ export default function Room() {
             onPlayAgain={handlePlayAgain}
           />
         ) : phase === "test" ? (
-          <TypingArea
-            time={time}
-            isTestActive={isTestActive}
-            testContent={testContent}
-            onTestStart={handleTestStart}
-            onTestFinish={handleTestFinish}
-            onResultsSubmit={handleResultsSubmit}
-            isMultiplayer={true}
-          />
+          <div className="max-w-5xl mx-auto">
+            <TypingArea
+              time={time}
+              isTestActive={isTestActive}
+              testContent={testContent}
+              onTestStart={handleTestStart}
+              onTestFinish={handleTestFinish}
+              onResultsSubmit={handleResultsSubmit}
+              isMultiplayer={true}
+            />
+          </div>
         ) : null}
       </div>
     </div>

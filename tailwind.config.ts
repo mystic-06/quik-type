@@ -9,8 +9,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        'rubik': ['Rubik', 'sans-serif'],
-        'space-mono': ['var(--font-space-mono)'],
+        'display': ['Inter', 'sans-serif'],
+        'mono': ['JetBrains Mono', 'monospace'],
       },
     },
   },

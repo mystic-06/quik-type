@@ -1,95 +1,286 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,300..900;1,300..900&display=swap');
 
-body {
-  font-family: 'Rubik', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-}
-
+/* ── Neobrutalism Design Tokens ──────────────────────────── */
 :root {
-  --background: #1A1B26;
-  --surface: #24283B;
-  --text-primary: #A9B1D6;
-  --text-secondary: #565F89;
-  --text-incorrect: #F7768E;
-  --accent-primary: #E0AF68;
-  --accent-secondary: #7AA2F7;
+  /* Color palette from DESIGN.md */
+  --primary: #FDC800;
+  --secondary: #432DD7;
+  --success: #16A34A;
+  --warning: #D97706;
+  --danger: #DC2626;
+  --surface: #FBFBF9;
+  --surface-alt: #F2F0EB;
+  --text: #1C293C;
+  --text-secondary: #4B5E78;
+  --text-muted: #8896AB;
+  --border: #1C293C;
 
-  --font-rubik: 'Rubik', sans-serif;
-  --font-space-mono: 'Space Mono', monospace;
+  /* Spacing scale: 4/8/12/16/24/32 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* Typography scale: 13/15/17/21/27/35 */
+  --ts-xs: 13px;
+  --ts-sm: 15px;
+  --ts-base: 17px;
+  --ts-lg: 21px;
+  --ts-xl: 27px;
+  --ts-2xl: 35px;
+
+  /* Neobrutalist radii — intentionally small */
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* Hard shadow — THE neobrutalism signature */
+  --shadow: 4px 4px 0 var(--border);
+  --shadow-sm: 2px 2px 0 var(--border);
+  --shadow-lg: 6px 6px 0 var(--border);
+  --shadow-hover: 6px 6px 0 var(--border);
+  --shadow-active: 2px 2px 0 var(--border);
+}
+
+/* ── Base ────────────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background-color: var(--background);
-  color: var(--text-primary);
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--surface);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: var(--ts-base);
+  line-height: 1.5;
 }
 
-/* Background + Text Utilities */
-.bg-background { background-color: var(--background); }
-.text-background { color: var(--background); }
-
-.bg-surface { background-color: var(--surface); }
-.text-surface { color: var(--surface); }
-
-.text-primary { color: var(--text-primary); }
-.text-secondary { color: var(--text-secondary); }
-.text-incorrect { color: var(--text-incorrect); }
-
-.hover\:text-primary:hover { color: var(--text-primary); } 
-.hover\:bg-accent-primary:hover { background-color: var(--accent-primary); } 
-.hover\:text-accent-primary:hover { color: var(--accent-primary); }
-
-/* Accent Primary */
-.bg-accent-primary { background-color: var(--accent-primary); }
-.text-accent-primary { color: var(--accent-primary); }
-.hover\:bg-accent-primary:hover { background-color: var(--accent-primary); }
-.hover\:text-accent-primary:hover { color: var(--accent-primary); }
-
-/* Accent Secondary */
-.bg-accent-secondary { background-color: var(--accent-secondary); }
-.text-accent-secondary { color: var(--accent-secondary); }
-.hover\:bg-accent-secondary:hover { background-color: var(--accent-secondary); }
-.hover\:text-accent-secondary:hover { color: var(--accent-secondary); }
-
-/* Incorrect (Error-like) */
-.bg-incorrect { background-color: var(--text-incorrect); }
-.text-incorrect { color: var(--text-incorrect); }
-.hover\:bg-incorrect:hover { background-color: var(--text-incorrect); }
-.hover\:text-incorrect:hover { color: var(--text-incorrect); }
-
-
-/* Font utilities */
-.font-rubik {
-  font-family: 'Rubik', sans-serif;
+/* ── Neobrutalist Card ───────────────────────────────────── */
+.nb-card {
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
-.font-space-mono{
-  font-family: var(--font-space-mono);
-}
-/* Effects */
-
-.hover-underline-animation {
-  /* display: inline-block; */
-  position: relative;
+.nb-card-flat {
+  background: #fff;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
 }
 
-.hover-underline-animation::after {
-  content: '';
-  position: absolute;
+.nb-card-primary {
+  background: var(--primary);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.nb-card-secondary {
+  background: var(--secondary);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: #fff;
+}
+
+/* ── Neobrutalist Buttons ────────────────────────────────── */
+.nb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-6);
+  font-weight: 700;
+  font-size: var(--ts-sm);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  text-decoration: none;
+  line-height: 1;
+}
+
+.nb-btn:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.nb-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-active);
+}
+
+.nb-btn-primary {
+  background: var(--primary);
+  color: var(--text);
+}
+
+.nb-btn-secondary {
+  background: var(--secondary);
+  color: #fff;
+}
+
+.nb-btn-success {
+  background: var(--success);
+  color: #fff;
+}
+
+.nb-btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.nb-btn-ghost {
+  background: transparent;
+  color: var(--text);
+  box-shadow: none;
+  border-color: var(--border);
+}
+
+.nb-btn-ghost:hover {
+  background: var(--surface-alt);
+  transform: none;
+  box-shadow: none;
+}
+
+.nb-btn-ghost:active {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Neobrutalist Input ──────────────────────────────────── */
+.nb-input {
   width: 100%;
-  transform: scaleX(0);
-  height: 2px;
-  bottom: 0;
-  left: 0;
-  background-color: var(--accent-primary);;
-  transition: transform 0.25s ease-out;
-  transform-origin: bottom right;
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--ts-base);
+  font-family: inherit;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--text);
+  outline: none;
+  transition: box-shadow 0.15s ease;
 }
 
-.hover-underline-animation:hover::after {
-  transform: scaleX(1);
-  transform-origin: bottom left;
+.nb-input::placeholder {
+  color: var(--text-muted);
 }
 
-.btnActive{
-  color:#88C0D0;
+.nb-input:focus {
+  box-shadow: var(--shadow);
+}
+
+/* ── Neobrutalist Badge / Pill ───────────────────────────── */
+.nb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  font-size: var(--ts-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  line-height: 1.4;
+}
+
+/* ── Font utilities ──────────────────────────────────────── */
+.font-display {
+  font-family: 'Inter', sans-serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), 'JetBrains Mono', monospace;
+}
+
+/* ── Caret blink for typing ──────────────────────────────── */
+@keyframes caret-blink {
+  0%, 70% { opacity: 1; }
+  71%, 100% { opacity: 0; }
+}
+
+.caret-blink {
+  animation: caret-blink 1s step-end infinite;
+}
+
+/* ── Bounce-in for countdown ─────────────────────────────── */
+@keyframes bounce-in {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.1); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ── Fade-in-up entrance ─────────────────────────────────── */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+.stagger-children > * {
+  animation: fade-in-up 0.35s ease-out both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+
+/* ── Focus visible — WCAG 2.2 AA ─────────────────────────── */
+:focus-visible {
+  outline: 3px solid var(--secondary);
+  outline-offset: 2px;
+}
+
+/* ── Selection ───────────────────────────────────────────── */
+::selection {
+  background-color: var(--primary);
+  color: var(--text);
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+  border: 2px solid var(--surface);
+}
+
+/* ── Decorative grid pattern (optional subtle bg) ────────── */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(28, 41, 60, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(28, 41, 60, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
