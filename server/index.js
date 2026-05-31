@@ -57,6 +57,9 @@ class RoomManager {
       participants: new Map(),
       testData: null,
       createdAt: Date.now(),
+      countdownInterval: null,
+      testTimeout: null,
+      resultsTimeout: null,
     };
 
     this.rooms.set(roomId, room);
@@ -68,7 +71,26 @@ class RoomManager {
     return this.rooms.get(roomId);
   }
 
+  clearRoomTimers(room) {
+    if (room.countdownInterval) {
+      clearInterval(room.countdownInterval);
+      room.countdownInterval = null;
+    }
+    if (room.testTimeout) {
+      clearTimeout(room.testTimeout);
+      room.testTimeout = null;
+    }
+    if (room.resultsTimeout) {
+      clearTimeout(room.resultsTimeout);
+      room.resultsTimeout = null;
+    }
+  }
+
   deleteRoom(roomId) {
+    const room = this.getRoom(roomId);
+    if (room) {
+      this.clearRoomTimers(room);
+    }
     const deleted = this.rooms.delete(roomId);
     if (deleted) {
     }
@@ -129,7 +151,7 @@ const io = new Server(server, {
   cors: {
     origin:
       process.env.NODE_ENV === "production"
-        ? process.env.FRONTEND_URL?.split(',') || ["https://speed-typing-kappa.vercel.app"]
+        ? process.env.FRONTEND_URL?.split(',') || ["https://quik-type.vercel.app"]
         : ["http://localhost:3000"],
     methods: ["GET", "POST"],
     credentials: true,
@@ -221,9 +243,12 @@ io.on("connection", (socket) => {
 
   // Handle test configuration
   socket.on("configure-test", (newConfig) => {
+    if (!newConfig || typeof newConfig !== "object") {
+      socket.emit("error", "Invalid configuration payload");
+      return;
+    }
+
     try {
-
-
       const room = roomManager.getRoom(socket.roomId);
       if (!room) {
         socket.emit("error", "Room not found");
@@ -287,6 +312,7 @@ io.on("connection", (socket) => {
       const allReady = allParticipants.length >= 1 && allParticipants.every((p) => p.isReady);
 
       if (allReady && room.phase === "setup") {
+        roomManager.clearRoomTimers(room);
 
         room.phase = "countdown";
 
@@ -294,12 +320,15 @@ io.on("connection", (socket) => {
         let countdown = 5;
         io.to(socket.roomId).emit("countdown-start", countdown);
 
-        const countdownInterval = setInterval(() => {
+        room.countdownInterval = setInterval(() => {
           countdown--;
           if (countdown > 0) {
             io.to(socket.roomId).emit("countdown-update", countdown);
           } else {
-            clearInterval(countdownInterval);
+            if (room.countdownInterval) {
+              clearInterval(room.countdownInterval);
+              room.countdownInterval = null;
+            }
 
             // Start the test
             room.phase = "test";
@@ -317,7 +346,8 @@ io.on("connection", (socket) => {
 
             // Set a timeout to force end the test if not all players submit results
             // This is a safety mechanism - normally results should be submitted by clients
-            setTimeout(() => {
+            room.testTimeout = setTimeout(() => {
+              room.testTimeout = null;
               if (room.phase === "test") {
 
 
@@ -375,12 +405,39 @@ io.on("connection", (socket) => {
   });
   // Handle test results submission
   socket.on("submit-results", (results) => {
+    if (!results || typeof results !== "object") {
+      socket.emit("error", "Invalid results payload");
+      return;
+    }
+
+    const wpm = results.wpm || 0;
+    const rawWpm = results.rawWpm || 0;
+    const accuracy = results.accuracy || 0;
+    const charactersTyped = results.charactersTyped || 0;
+    const completionPercentage = results.completionPercentage || 0;
+
+    // Validate boundaries to prevent cheating and invalid values
+    if (
+      typeof wpm !== "number" || wpm < 0 || wpm >= 300 ||
+      typeof rawWpm !== "number" || rawWpm < 0 || rawWpm >= 500 ||
+      typeof accuracy !== "number" || accuracy < 0 || accuracy > 100 ||
+      typeof completionPercentage !== "number" || completionPercentage < 0 || completionPercentage > 100 ||
+      typeof charactersTyped !== "number" || charactersTyped < 0
+    ) {
+      socket.emit("error", "Results failed sanity validation checks");
+      return;
+    }
+
     try {
-
-
       const room = roomManager.getRoom(socket.roomId);
       if (!room) {
         socket.emit("error", "Room not found");
+        return;
+      }
+
+      // Check if room is in active test phase
+      if (room.phase !== "test") {
+        socket.emit("error", "Cannot submit results when test is not active");
         return;
       }
 
@@ -392,11 +449,11 @@ io.on("connection", (socket) => {
 
       // Store final results
       participant.finalResults = {
-        wpm: results.wpm || 0,
-        rawWpm: results.rawWpm || 0,
-        accuracy: results.accuracy || 0,
-        charactersTyped: results.charactersTyped || 0,
-        completionPercentage: results.completionPercentage || 0,
+        wpm: wpm,
+        rawWpm: rawWpm,
+        accuracy: accuracy,
+        charactersTyped: charactersTyped,
+        completionPercentage: completionPercentage,
         submittedAt: Date.now(),
       };
 
@@ -409,6 +466,12 @@ io.on("connection", (socket) => {
 
 
       if (allSubmitted) {
+        // Clear testTimeout since all submitted
+        if (room.testTimeout) {
+          clearTimeout(room.testTimeout);
+          room.testTimeout = null;
+        }
+
         // Create rankings based on WPM
         const rankings = allParticipants
           .map(p => ({
@@ -439,7 +502,8 @@ io.on("connection", (socket) => {
 
 
         // Reset participants' ready state and results for potential next round
-        setTimeout(() => {
+        room.resultsTimeout = setTimeout(() => {
+          room.resultsTimeout = null;
           allParticipants.forEach(p => {
             p.isReady = false;
             p.finalResults = null;
@@ -469,6 +533,9 @@ io.on("connection", (socket) => {
         socket.emit("error", "Only host can restart room");
         return;
       }
+
+      // Clear any active timers
+      roomManager.clearRoomTimers(room);
 
       // Reset all participants
       const allParticipants = Array.from(room.participants.values());
