@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { generate } from "random-words";
+import { RotateCcw, Gauge, Crosshair, Zap } from "lucide-react";
 
 interface TypingAreaProps {
   time: number;
@@ -86,12 +87,12 @@ export default function TypingArea({
     const completionPercentage = Math.round((typedCount / fullText.length) * 100);
 
     if (typedCount === 0) {
-      return { 
-        accuracy: 0, 
-        rawWpm: 0, 
-        wpm: 0, 
+      return {
+        accuracy: 0,
+        rawWpm: 0,
+        wpm: 0,
         charactersTyped: 0,
-        completionPercentage: 0
+        completionPercentage: 0,
       };
     }
 
@@ -105,25 +106,23 @@ export default function TypingArea({
     } else {
       elapsedSeconds = 0;
     }
-    
+
     const elapsedMinutes = Math.max(elapsedSeconds / 60, 0.05);
 
     let rawWpm = 0;
     let wpm = 0;
-    
+
     if (elapsedSeconds > 0) {
-      rawWpm = Math.round((typedCount / 5) / elapsedMinutes);
-      wpm = Math.round((correctCount / 5) / elapsedMinutes);
+      rawWpm = Math.round(typedCount / 5 / elapsedMinutes);
+      wpm = Math.round(correctCount / 5 / elapsedMinutes);
     }
-
-
 
     return {
       accuracy,
       rawWpm,
       wpm,
       charactersTyped: typedCount,
-      completionPercentage
+      completionPercentage,
     };
   }, [charStatuses, time, timeLeft, hasStarted, fullText.length]);
 
@@ -138,6 +137,7 @@ export default function TypingArea({
       resultsSubmittedRef.current = false;
     }
   }, [isTestActive]);
+
   useEffect(() => {
     if (isTestActive && timeLeft > 0) {
       intervalRef.current = setInterval(() => {
@@ -162,6 +162,7 @@ export default function TypingArea({
       }
     };
   }, [isTestActive, timeLeft, onTestFinish]);
+
   useEffect(() => {
     if (isComplete && isMultiplayer && onResultsSubmit && !resultsSubmittedRef.current) {
       const resultsToSubmit = {
@@ -171,13 +172,12 @@ export default function TypingArea({
         charactersTyped: metrics.charactersTyped,
         completionPercentage: metrics.completionPercentage,
       };
-      
 
-      
       resultsSubmittedRef.current = true;
       onResultsSubmit(resultsToSubmit);
     }
   }, [isComplete, isMultiplayer, onResultsSubmit, metrics, timeLeft, userInput.length, fullText.length, hasStarted]);
+
   useEffect(() => {
     const activeChar = charRefs.current.get(currentIndex);
     const container = containerRef.current;
@@ -191,6 +191,7 @@ export default function TypingArea({
       }
     }
   }, [currentIndex, lineOffset]);
+
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
@@ -209,6 +210,7 @@ export default function TypingArea({
     },
     [timeLeft, fullText.length, isTestActive, onTestStart]
   );
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === "Backspace") {
@@ -230,6 +232,7 @@ export default function TypingArea({
     },
     [userInput, testText]
   );
+
   const resetTest = useCallback(() => {
     setUserInput("");
     setTimeLeft(time);
@@ -237,17 +240,18 @@ export default function TypingArea({
     setHasStarted(false);
     resultsSubmittedRef.current = false;
     charRefs.current.clear();
-    
+
     if (!isMultiplayer) {
-      setTextSeed(prev => prev + 1);
+      setTextSeed((prev) => prev + 1);
     }
-    
+
     if (onTryAgain) {
       onTryAgain();
     }
-    
+
     inputRef.current?.focus();
   }, [time, isMultiplayer, onTryAgain]);
+
   const setCharRef = useCallback(
     (index: number) => (el: HTMLSpanElement | null) => {
       if (el) {
@@ -259,39 +263,54 @@ export default function TypingArea({
     []
   );
 
+  // Timer progress
+  const timerPercent = isTestActive ? ((time - timeLeft) / time) * 100 : 0;
+
   return (
-    <div className="w-full max-w-7xl mx-auto">
+    <div className="w-full max-w-5xl mx-auto">
       {/* Timer */}
       <div
-        className="text-accent-primary font-space-mono text-4xl mb-4 text-center transition-all duration-300"
-        style={{ opacity: isTestActive ? 1 : 0 }}
+        className="flex justify-center mb-6 transition-all duration-300"
+        style={{
+          opacity: isTestActive ? 1 : 0,
+          transform: isTestActive ? "translateY(0)" : "translateY(-8px)",
+        }}
       >
-        {timeLeft}s
+        <div className="nb-card-primary flex items-center gap-3 px-5 py-2">
+          <span className="font-mono text-[var(--ts-2xl)] font-black tabular-nums">
+            {timeLeft}
+          </span>
+          <span className="text-[var(--ts-xs)] font-bold uppercase">sec</span>
+          {/* Progress bar */}
+          <div className="w-24 h-2 bg-[var(--border)] rounded-sm overflow-hidden border border-[var(--border)]">
+            <div
+              className="h-full bg-white transition-all duration-1000 ease-linear"
+              style={{ width: `${100 - timerPercent}%` }}
+            />
+          </div>
+        </div>
       </div>
 
       {/* Typing area */}
       <div
         ref={containerRef}
-        className="h-56 bg-surface mx-auto font-space-mono p-6 rounded-lg overflow-hidden relative cursor-text"
+        className="relative h-56 nb-card p-6 md:p-8 overflow-hidden cursor-text"
         onClick={() => inputRef.current?.focus()}
       >
         <div
           key={textSeed}
-          className="flex flex-wrap text-3xl leading-relaxed transition-transform duration-200"
+          className="flex flex-wrap text-[22px] md:text-[26px] leading-[2.6rem] transition-transform duration-200 font-mono"
           style={{ transform: `translateY(-${lineOffset}px)` }}
         >
           {fullText.split("").map((char, index) => {
             const status = charStatuses[index];
             const isCurrent = index === currentIndex;
 
-            let className = "text-gray-500";
+            let charClass = "text-[var(--text-muted)]";
             if (status === "correct") {
-              className = "text-gray-300";
+              charClass = "text-[var(--text)]";
             } else if (status === "incorrect") {
-              className = "text-red-400";
-            } else if (isCurrent) {
-              className =
-                "relative after:absolute after:left-0 after:top-0 after:w-0.5 after:h-full after:bg-blue-300 after:animate-pulse";
+              charClass = "text-[var(--danger)] bg-[var(--danger)]/10";
             }
 
             return (
@@ -299,8 +318,11 @@ export default function TypingArea({
                 key={index}
                 id={`char-${index}`}
                 ref={setCharRef(index)}
-                className={className}
+                className={`${charClass} ${isCurrent ? "relative" : ""}`}
               >
+                {isCurrent && (
+                  <span className="absolute left-0 top-[0.1em] w-[3px] h-[1.15em] bg-[var(--secondary)] caret-blink" />
+                )}
                 {char === " " ? "\u00A0" : char}
               </span>
             );
@@ -308,72 +330,97 @@ export default function TypingArea({
         </div>
       </div>
 
-      {/* Results - Only show in single player mode */}
+      {/* Results — Solo mode */}
       {isComplete && !isMultiplayer && (
-        <div className="mt-6 text-center space-y-4">
-          <div className="bg-surface rounded-lg p-4 shadow-md">
-            <h3 className="text-lg font-semibold mb-4 text-primary">
+        <div className="mt-8 animate-fade-in-up">
+          <div className="nb-card p-8">
+            <h3 className="text-center text-[var(--ts-xl)] font-black mb-8">
               Test Complete!
             </h3>
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div>
-                <p className="text-sm text-gray-400">WPM</p>
-                <p className="text-2xl font-bold text-blue-400">
+
+            <div className="grid grid-cols-3 gap-4 mb-8 stagger-children">
+              {/* WPM */}
+              <div className="nb-card-primary text-center p-5">
+                <div className="flex items-center justify-center gap-1.5 mb-2">
+                  <Gauge className="w-4 h-4" />
+                  <p className="text-[var(--ts-xs)] font-bold uppercase">WPM</p>
+                </div>
+                <p className="text-[var(--ts-2xl)] font-black font-mono">
                   {metrics.wpm}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-gray-400">Raw WPM</p>
-                <p className="text-2xl font-bold text-blue-300">
+              {/* Raw WPM */}
+              <div className="nb-card-flat text-center p-5">
+                <div className="flex items-center justify-center gap-1.5 mb-2">
+                  <Zap className="w-4 h-4 text-[var(--text-secondary)]" />
+                  <p className="text-[var(--ts-xs)] font-bold uppercase text-[var(--text-muted)]">Raw WPM</p>
+                </div>
+                <p className="text-[var(--ts-2xl)] font-black font-mono text-[var(--text-secondary)]">
                   {metrics.rawWpm}
                 </p>
               </div>
-              <div>
-                <p className="text-sm text-gray-400">Accuracy</p>
-                <p className="text-2xl font-bold text-green-300">
+              {/* Accuracy */}
+              <div className="text-center p-5 border-2 border-[var(--border)] rounded-[var(--radius)] bg-[var(--success)] text-white shadow-[var(--shadow)]">
+                <div className="flex items-center justify-center gap-1.5 mb-2">
+                  <Crosshair className="w-4 h-4" />
+                  <p className="text-[var(--ts-xs)] font-bold uppercase">Accuracy</p>
+                </div>
+                <p className="text-[var(--ts-2xl)] font-black font-mono">
                   {metrics.accuracy}%
                 </p>
               </div>
             </div>
-            <button
-              onClick={resetTest}
-              className="px-6 py-2 bg-accent-secondary text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
-            >
-              Try Again
-            </button>
+
+            <div className="flex justify-center">
+              <button
+                onClick={resetTest}
+                className="nb-btn nb-btn-secondary text-[var(--ts-base)] !px-8 !py-3"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Try Again
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Multiplayer completion message */}
+      {/* Multiplayer completion */}
       {isComplete && isMultiplayer && (
-        <div className="mt-6 text-center">
-          <div className="bg-surface rounded-lg p-6">
-            <h3 className="text-xl font-semibold mb-2 text-primary">
+        <div className="mt-8 animate-fade-in-up">
+          <div className="nb-card p-8">
+            <h3 className="text-center text-[var(--ts-xl)] font-black mb-2">
               Test Complete!
             </h3>
-            <p className="text-secondary mb-4">
-              Your results have been submitted. Waiting for other players...
+            <p className="text-center text-[var(--text-secondary)] mb-6 text-[var(--ts-sm)]">
+              Results submitted. Waiting for other players...
             </p>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <p className="text-sm text-gray-400">WPM</p>
-                <p className="text-2xl font-bold text-blue-400">
-                  {metrics.wpm}
-                </p>
+            <div className="grid grid-cols-3 gap-4 stagger-children">
+              <div className="nb-card-primary text-center p-5">
+                <div className="flex items-center justify-center gap-1.5 mb-2">
+                  <Gauge className="w-4 h-4" />
+                  <p className="text-[var(--ts-xs)] font-bold uppercase">WPM</p>
+                </div>
+                <p className="text-[var(--ts-2xl)] font-black font-mono">{metrics.wpm}</p>
               </div>
-              <div>
-                <p className="text-sm text-gray-400">Raw WPM</p>
-                <p className="text-2xl font-bold text-blue-300">
-                  {metrics.rawWpm}
-                </p>
+              <div className="nb-card-flat text-center p-5">
+                <div className="flex items-center justify-center gap-1.5 mb-2">
+                  <Zap className="w-4 h-4 text-[var(--text-secondary)]" />
+                  <p className="text-[var(--ts-xs)] font-bold uppercase text-[var(--text-muted)]">Raw WPM</p>
+                </div>
+                <p className="text-[var(--ts-2xl)] font-black font-mono text-[var(--text-secondary)]">{metrics.rawWpm}</p>
               </div>
-              <div>
-                <p className="text-sm text-gray-400">Accuracy</p>
-                <p className="text-2xl font-bold text-green-300">
-                  {metrics.accuracy}%
-                </p>
+              <div className="text-center p-5 border-2 border-[var(--border)] rounded-[var(--radius)] bg-[var(--success)] text-white shadow-[var(--shadow)]">
+                <div className="flex items-center justify-center gap-1.5 mb-2">
+                  <Crosshair className="w-4 h-4" />
+                  <p className="text-[var(--ts-xs)] font-bold uppercase">Accuracy</p>
+                </div>
+                <p className="text-[var(--ts-2xl)] font-black font-mono">{metrics.accuracy}%</p>
               </div>
+            </div>
+
+            {/* Waiting spinner */}
+            <div className="flex justify-center mt-6">
+              <div className="w-6 h-6 border-3 border-[var(--border)] border-t-[var(--primary)] rounded-full animate-spin" />
             </div>
           </div>
         </div>

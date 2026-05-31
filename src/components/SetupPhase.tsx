@@ -1,5 +1,7 @@
 "use client";
 
+import { Check, Crown, Clock, User } from "lucide-react";
+
 interface Participant {
   id: string;
   username: string;
@@ -30,6 +32,8 @@ export default function SetupPhase({
 }: SetupPhaseProps) {
   const currentUser = participants.find((p) => p.id === currentUserId);
   const isCurrentUserReady = currentUser?.isReady || false;
+  const readyCount = participants.filter((p) => p.isReady).length;
+  const allReady = readyCount === participants.length && participants.length > 1;
 
   const handleTimerChange = (duration: number) => {
     if (isHost) {
@@ -38,143 +42,146 @@ export default function SetupPhase({
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-6">
-      {/* Timer Configuration Section - Host Only */}
-      {isHost && (
-        <div className="bg-surface rounded-xl p-6 mb-6">
-          <h2 className="text-2xl font-bold text-primary mb-4">
-            Test Configuration
-          </h2>
-          <div className="mb-4">
-            <label className="block text-lg text-primary mb-3">
-              Timer Duration:
-            </label>
-            <div className="flex gap-3 flex-wrap">
-              {TIMER_OPTIONS.map((duration) => (
-                <button
-                  key={duration}
-                  onClick={() => handleTimerChange(duration)}
-                  className={`px-4 py-2 rounded-lg text-lg font-medium transition-all duration-200 ${
-                    roomConfig.timerDuration === duration
-                      ? "bg-accent-primary text-background"
-                      : "bg-background text-primary hover:bg-accent-primary hover:text-background"
-                  }`}
-                >
-                  {duration}s
-                </button>
-              ))}
+    <div className="w-full max-w-4xl mx-auto py-6 animate-fade-in-up">
+      {/* Config + Participants grid */}
+      <div className="grid md:grid-cols-2 gap-6 mb-8">
+        {/* Timer */}
+        <div className="nb-card p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 flex items-center justify-center bg-[var(--primary)] border-2 border-[var(--border)] rounded-md">
+              <Clock className="w-4 h-4" />
             </div>
+            <h2 className="text-[var(--ts-lg)] font-black">Timer</h2>
+            {!isHost && (
+              <span className="nb-badge ml-auto bg-[var(--surface-alt)]">
+                Host only
+              </span>
+            )}
+          </div>
+
+          <div className="flex gap-2 flex-wrap">
+            {TIMER_OPTIONS.map((duration) => (
+              <button
+                key={duration}
+                onClick={() => handleTimerChange(duration)}
+                disabled={!isHost}
+                className={`px-5 py-2.5 font-mono text-[var(--ts-base)] font-bold rounded-md transition-all duration-100 cursor-pointer border-2 border-[var(--border)] ${
+                  roomConfig.timerDuration === duration
+                    ? "bg-[var(--primary)] shadow-[2px_2px_0_var(--border)]"
+                    : isHost
+                    ? "bg-white text-[var(--text-secondary)] hover:bg-[var(--surface-alt)]"
+                    : "bg-[var(--surface-alt)] text-[var(--text-muted)] cursor-not-allowed"
+                }`}
+              >
+                {duration}s
+              </button>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* Non-host view of current configuration */}
-      {!isHost && (
-        <div className="bg-surface rounded-xl p-6 mb-6">
-          <h2 className="text-2xl font-bold text-primary mb-4">
-            Test Configuration
-          </h2>
-          <div className="text-lg text-secondary">
-            Timer Duration:{" "}
-            <span className="text-accent-primary font-medium">
-              {roomConfig.timerDuration}s
+        {/* Participants */}
+        <div className="nb-card p-6">
+          <div className="flex items-center gap-2 mb-5">
+            <div className="w-8 h-8 flex items-center justify-center bg-[var(--secondary)] border-2 border-[var(--border)] rounded-md text-white">
+              <User className="w-4 h-4" />
+            </div>
+            <h2 className="text-[var(--ts-lg)] font-black">Players</h2>
+            <span className="nb-badge ml-auto bg-[var(--surface-alt)] font-mono">
+              {participants.length}/8
             </span>
           </div>
-        </div>
-      )}
 
-      {/* Participants List */}
-      <div className="bg-surface rounded-xl p-6 mb-6">
-        <h2 className="text-2xl font-bold text-primary mb-4">
-          Participants ({participants.length})
-        </h2>
-        <div className="space-y-3">
-          {participants.map((participant) => (
-            <div
-              key={participant.id}
-              className="flex items-center justify-between p-3 bg-background rounded-lg"
-            >
-              <div className="flex items-center gap-3">
-                <div className="text-lg font-medium text-primary">
-                  {participant.username}
-                  {participant.isHost && (
-                    <span className="ml-2 px-2 py-1 text-sm bg-accent-primary text-background rounded">
-                      Host
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
+          <div className="space-y-2 stagger-children">
+            {participants.map((participant) => {
+              const isMe = participant.id === currentUserId;
+              return (
                 <div
-                  className={`w-4 h-4 rounded-full border-2 transition-all duration-200 ${
-                    participant.isReady
-                      ? "bg-accent-secondary border-accent-secondary shadow-lg"
-                      : "bg-transparent border-text-secondary"
-                  }`}
-                />
-                <span
-                  className={`text-lg font-medium transition-colors duration-200 ${
-                    participant.isReady
-                      ? "text-accent-secondary"
-                      : "text-secondary"
+                  key={participant.id}
+                  className={`flex items-center justify-between p-3 rounded-md border-2 transition-all duration-100 ${
+                    isMe
+                      ? "border-[var(--secondary)] bg-[var(--secondary)]/5"
+                      : "border-[var(--border)] bg-white"
                   }`}
                 >
-                  {participant.isReady ? "✓ Ready" : "Not Ready"}
-                </span>
-              </div>
-            </div>
-          ))}
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-md flex items-center justify-center text-[var(--ts-xs)] font-black border-2 border-[var(--border)] ${
+                        isMe ? "bg-[var(--secondary)] text-white" : "bg-[var(--surface-alt)]"
+                      }`}
+                    >
+                      {participant.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[var(--ts-sm)] font-bold">
+                        {participant.username}
+                      </span>
+                      {participant.isHost && (
+                        <span className="nb-badge bg-[var(--primary)] text-[10px]">
+                          <Crown className="w-2.5 h-2.5" />
+                          Host
+                        </span>
+                      )}
+                      {isMe && (
+                        <span className="text-[var(--ts-xs)] text-[var(--text-muted)] font-medium">(you)</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Ready indicator */}
+                  <div
+                    className={`flex items-center gap-1.5 text-[var(--ts-xs)] font-bold ${
+                      participant.isReady ? "text-[var(--success)]" : "text-[var(--text-muted)]"
+                    }`}
+                  >
+                    <div
+                      className={`w-5 h-5 rounded-md flex items-center justify-center border-2 border-[var(--border)] transition-all duration-100 ${
+                        participant.isReady ? "bg-[var(--success)] text-white" : "bg-white"
+                      }`}
+                    >
+                      {participant.isReady && <Check className="w-3 h-3" />}
+                    </div>
+                    <span>{participant.isReady ? "Ready" : "Waiting"}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Ready Button */}
-      <div className="text-center">
+      {/* Ready button & status */}
+      <div className="flex flex-col items-center gap-5">
         <button
-          onClick={() => {
-            console.log("Ready button clicked in SetupPhase");
-            onReadyToggle();
-          }}
-          className={`px-12 py-4 text-2xl font-bold rounded-xl transition-all duration-200 transform hover:scale-105 ${
+          onClick={() => onReadyToggle()}
+          className={`nb-btn text-[var(--ts-lg)] !px-14 !py-4 ${
             isCurrentUserReady
-              ? "bg-accent-secondary text-background hover:opacity-80 shadow-lg"
-              : "bg-accent-primary text-background hover:opacity-80 shadow-md"
+              ? "nb-btn-success"
+              : "nb-btn-secondary"
           }`}
         >
-          {isCurrentUserReady ? "Cancel" : "Ready Up"}
+          {isCurrentUserReady ? "✓ Ready!" : "Ready Up"}
         </button>
-        {/* Debug info */}
-        <div className="mt-2 text-sm text-secondary">
-          Debug: User {currentUserId} - Ready:{" "}
-          {isCurrentUserReady ? "Yes" : "No"}
-        </div>
-      </div>
 
-      {/* Status Message */}
-      <div className="text-center mt-6">
-        {participants.every((p) => p.isReady) && participants.length > 1 ? (
-          <div className="bg-surface bg-opacity-20 border border-accent-secondary rounded-lg p-4">
-            <p className="text-accent-secondary text-xl font-bold">
-              All players ready! Starting countdown...
-            </p>
+        {/* Progress */}
+        <div className="w-full max-w-xs">
+          <div className="flex items-center justify-between text-[var(--ts-xs)] font-bold text-[var(--text-muted)] mb-2">
+            <span>{readyCount}/{participants.length} ready</span>
+            {allReady && (
+              <span className="text-[var(--success)] animate-pulse">
+                Starting countdown...
+              </span>
+            )}
           </div>
-        ) : (
-          <div className="bg-surface rounded-lg p-4">
-            <p className="text-secondary text-lg">
-              Waiting for {participants.filter((p) => !p.isReady).length}{" "}
-              player(s) to ready up...
-            </p>
-            <div className="flex justify-center gap-2 mt-2">
-              {participants.map((p) => (
-                <div
-                  key={p.id}
-                  className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                    p.isReady ? "bg-accent-secondary" : "bg-text-secondary"
-                  }`}
-                />
-              ))}
-            </div>
+          <div className="h-3 rounded-md bg-white border-2 border-[var(--border)] overflow-hidden">
+            <div
+              className="h-full transition-all duration-500 ease-out"
+              style={{
+                width: `${(readyCount / Math.max(participants.length, 1)) * 100}%`,
+                background: allReady ? "var(--success)" : "var(--secondary)",
+              }}
+            />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -1,24 +1,26 @@
 import Header from "../components/Header";
 import type { Metadata } from "next";
-import { Rubik, Space_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const rubik = Rubik({
+const inter = Inter({
   subsets: ["latin"],
   display: "swap",
-  weight: ["300", "400", "500", "700", "900"],
-  variable: "--font-rubik", 
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  variable: "--font-inter",
 });
 
-const space_mono = Space_Mono({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   display: "swap",
-  weight: ["400","700"],
-  variable: "--font-space-mono"
-})
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-mono",
+});
+
 export const metadata: Metadata = {
-  title: "QuikType",
-  description: "A speed typing test website.",
+  title: "QuikType — Speed Typing Test",
+  description:
+    "Test and improve your typing speed with solo practice or multiplayer races. Track WPM, accuracy, and compete with friends.",
 };
 
 export default function RootLayout({
@@ -27,12 +29,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${rubik.variable} ${space_mono.variable}`}>
-      <body>
-          <div className="flex justify-center mt-2">
+    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`}>
+      <body className="grid-bg">
+        <div className="max-w-[1200px] mx-auto px-4 md:px-8">
+          <div className="pt-6 pb-4">
             <Header />
           </div>
-          {children}
+          <main>{children}</main>
+        </div>
       </body>
     </html>
   );
