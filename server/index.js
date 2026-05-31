@@ -12,7 +12,7 @@ const allowedOrigins = process.env.FRONTEND_URL
 
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl)
+    // Allow requests with no origin 
     if (!origin) {
       callback(null, true);
       return;
@@ -20,19 +20,19 @@ const corsOptions = {
 
     const cleanOrigin = origin.trim().replace(/\/$/, "");
 
-    // 1. Check direct allowed list
+    // Check direct allowed list
     if (allowedOrigins.includes(cleanOrigin)) {
       callback(null, true);
       return;
     }
 
-    // 2. Allow any localhost / 127.0.0.1 for local dev
+    // Allow any localhost / 127.0.0.1 for local dev
     if (cleanOrigin.includes("localhost") || cleanOrigin.includes("127.0.0.1")) {
       callback(null, true);
       return;
     }
 
-    // 3. Allow Vercel preview / deployment URLs
+    // Allow Vercel preview / deployment URLs
     if (cleanOrigin.endsWith(".vercel.app")) {
       callback(null, true);
       return;
