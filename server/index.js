@@ -6,16 +6,51 @@ const { generate } = require("random-words");
 
 const app = express();
 
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(",").map(url => url.trim().replace(/\/$/, ""))
+  : ["https://quik-type.vercel.app"];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    const cleanOrigin = origin.trim().replace(/\/$/, "");
+
+    // 1. Check direct allowed list
+    if (allowedOrigins.includes(cleanOrigin)) {
+      callback(null, true);
+      return;
+    }
+
+    // 2. Allow any localhost / 127.0.0.1 for local dev
+    if (cleanOrigin.includes("localhost") || cleanOrigin.includes("127.0.0.1")) {
+      callback(null, true);
+      return;
+    }
+
+    // 3. Allow Vercel preview / deployment URLs
+    if (cleanOrigin.endsWith(".vercel.app")) {
+      callback(null, true);
+      return;
+    }
+
+    // Otherwise, deny in production, allow in dev
+    if (process.env.NODE_ENV !== "production") {
+      callback(null, true);
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST"],
+};
+
 // Configure CORS for Express
-app.use(
-  cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? process.env.FRONTEND_URL?.split(',') || ["https://quik-type.vercel.app"]
-        : ["http://localhost:3000"],
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
 
 // Basic health check endpoint
 app.get("/health", (req, res) => {
@@ -148,14 +183,7 @@ const roomManager = new RoomManager();
 
 // Configure Socket.IO with enhanced CORS and connection handling
 const io = new Server(server, {
-  cors: {
-    origin:
-      process.env.NODE_ENV === "production"
-        ? process.env.FRONTEND_URL?.split(',') || ["https://quik-type.vercel.app"]
-        : ["http://localhost:3000"],
-    methods: ["GET", "POST"],
-    credentials: true,
-  },
+  cors: corsOptions,
   connectionStateRecovery: {
     // Enable connection state recovery
     maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
