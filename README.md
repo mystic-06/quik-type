@@ -1,184 +1,134 @@
-# Speed Typing ⚡
+# QuikType
 
-A real-time multiplayer typing test application built with Next.js and Socket.IO.
+A high-performance, real-time multiplayer typing speed test application built with Next.js and Socket.IO.
+
+Live Application: [quik-type.vercel.app](https://quik-type.vercel.app)
+
+## Screenshot
+
+![QuikType Application Screenshot](public/screenshots/preview.png)
 
 ## Features
 
 ### Core Features
+- Countdown Timer: A five-second countdown synchronized across players before a test begins.
+- Dynamic Test Phase Management: React hooks managing setup, countdown, test, and result phases.
+- Real-Time Calculations: Words Per Minute (WPM), raw WPM, accuracy, and character count computed instantly.
+- Adaptive Word Generation: Dynamic generation of words with configurable typing duration.
 
-- ✅ **Countdown Timer** - 5-second countdown before tests begin
-- ✅ **Test Phase Management** - Custom hook for managing different test phases
-- ✅ **Socket.IO Integration** - Real-time communication setup
-- ✅ **Typing Test Engine** - Word generation and accuracy tracking
-- ✅ **Real-time Results** - Live WPM and accuracy calculation
-
-### Multiplayer Features
-
-- ✅ **Room System** - Join/create typing rooms
-- ✅ **Synchronized Start** - All players start simultaneously
-- ✅ **Results Ranking** - WPM-based leaderboard after each test
-- ✅ **Result Submission** - Automatic result collection and ranking
-- 🚧 **Live Player Status** - See other players' progress in real-time
-- 📋 **Live Cursor** - Show other player's cursor positions in realtime
-
-### UI Components
-
-- ✅ **Header Component** - Navigation and branding
-- ✅ **Countdown Phase** - Pre-test countdown display
-- ✅ **Setup Phase** - Room configuration and player setup
-- ✅ **Results Display** - Post-test statistics and comparison
-- ✅ **Multiplayer Results** - Ranked leaderboard with WPM sorting
-- ✅ **Typing Area** - Main typing interface
+### Multiplayer Capabilities
+- Room System: Create or join custom rooms using generated room codes.
+- Synchronized Test Start: Coordinated countdown and test launch for all participants.
+- Leaderboard Ranking: Post-test WPM and accuracy metrics compiled and ranked.
+- Connection Recovery: Socket.IO connection state recovery to handle temporary network issues.
 
 ## Tech Stack
 
-- **Frontend**: Next.js 15, React 19, TypeScript
-- **Styling**: Tailwind CSS 4
-- **Real-time**: Socket.IO
-- **Backend**: Express.js server
-- **Icons**: Lucide React
+### Frontend
+- Next.js 16
+- React 19
+- TypeScript
+- Tailwind CSS 4
+- Lucide React (Icons)
+- Socket.IO Client
+
+### Backend
+- Express.js
+- Socket.IO Server
+- CORS integration for secure origin sharing
 
 ## Getting Started
 
 ### Prerequisites
-
-- Node.js 18+
-- npm or yarn
+- Node.js 18 or later
+- npm, yarn, or pnpm
 
 ### Installation
 
-1. Clone the repository
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/mystic-06/quik-type.git
+   cd quik-type
+   ```
 
-```bash
-git clone <repository-url>
-cd speed-typing
-```
+2. Install the project dependencies:
+   ```bash
+   npm install
+   ```
 
-2. Install dependencies
+3. Configure the environment variables:
+   Copy the example environment file and fill in your details:
+   ```bash
+   cp .env.example .env.local
+   ```
+   Note: Configure FRONTEND_URL and NEXT_PUBLIC_SOCKET_URL to point to your respective backend and frontend hostnames.
 
-```bash
-npm install
-```
+### Run in Development
 
-3. Copy environment variables
+1. Start the Socket.IO Express backend server:
+   ```bash
+   npm run server:dev
+   ```
 
-```bash
-cp .env.example .env.local
-```
+2. In a separate terminal session, start the Next.js development frontend:
+   ```bash
+   npm run dev
+   ```
 
-### Development
+3. Access the application in your browser at:
+   [http://localhost:3000](http://localhost:3000)
 
-1. Start the Socket.IO server
+### Run in Production
 
-```bash
-npm run server:dev
-```
+1. Build the production assets:
+   ```bash
+   npm run build
+   ```
 
-2. Start the Next.js development server
+2. Start the production Next.js server:
+   ```bash
+   npm start
+   ```
 
-```bash
-npm run dev
-```
+3. Start the production backend server:
+   ```bash
+   npm run server
+   ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser
+## Environment Variables
 
-### Production
+For deployments, set the following environment variables:
 
-1. Build the application
-
-```bash
-npm run build
-```
-
-2. Start the production server
-
-```bash
-npm start
-```
-
-3. Start the Socket.IO server
-
-```bash
-npm run server
-```
-
-## Deployment
-
-### Environment Variables
-
-Set the following environment variables for production:
-
-- `NEXT_PUBLIC_SOCKET_URL`: Your Socket.IO server URL
-- `PORT`: Server port (default: 3001)
-- `NODE_ENV`: Set to "production"
-
-### Docker Deployment (Optional)
-
-Create a `Dockerfile`:
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3000 3001
-CMD ["sh", "-c", "npm run server & npm start"]
-```
-
-### Vercel/Netlify Deployment
-
-1. Deploy the Next.js app to Vercel/Netlify
-2. Deploy the Socket.IO server separately (Railway, Render, etc.)
-3. Update `NEXT_PUBLIC_SOCKET_URL` to point to your server
+- `NEXT_PUBLIC_SOCKET_URL`: URL of the deployed Socket.IO server.
+- `PORT`: Server port (defaults to 3001).
+- `NODE_ENV`: Set to "production".
+- `FRONTEND_URL`: URL of the frontend client (for CORS configuration).
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── room/[roomId]/     # Dynamic room pages
-│   ├── multiplayer/       # Multiplayer lobby
+│   ├── room/[roomId]/     # Dynamic room interfaces
+│   ├── multiplayer/       # Multiplayer lobby logic
 │   ├── leaderboard/       # Score rankings
-│   └── page.tsx          # Home page
+│   └── page.tsx           # Application landing page
 ├── components/
-│   ├── CountdownPhase.tsx # Pre-test countdown
-│   ├── Header.tsx        # Navigation header
-│   ├── SetupPhase.tsx    # Room setup
-│   └── TypingArea.tsx    # Main typing interface
+│   ├── CountdownPhase.tsx # Pre-test countdown UI
+│   ├── Header.tsx         # Navbar and branding
+│   ├── SetupPhase.tsx     # Room configuration UI
+│   ├── ResultPhase.tsx    # Post-game statistics and rankings
+│   └── TypingArea.tsx     # Core typing game logic
 ├── hooks/
-│   ├── useSocket.ts      # Socket.IO connection
-│   └── useTestingPhase.ts # Test state management
+│   └── useSocket.ts       # Socket.IO event listener hook
 └── server/
-    └── index.js          # Express + Socket.IO server
+    ├── config/            # CORS and server configurations
+    ├── controllers/       # Socket.IO connection event controllers
+    ├── jobs/              # Background clean-up scripts
+    ├── managers/          # Room status and state managers
+    ├── routes/            # REST API endpoints
+    └── index.js           # Server entry point
 ```
-
-## Development Status
-
-### Legend
-
-- ✅ **Complete** - Feature is implemented and working
-- 🚧 **In Progress** - Currently being developed
-- 📋 **Planned** - Scheduled for future development
-
-### Current Sprint
-
-- 🚧 Live Player Status - Real-time progress tracking during tests
-
-## Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm start` - Start production server
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
 
 ## License
 

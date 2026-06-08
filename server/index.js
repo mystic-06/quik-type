@@ -43,7 +43,7 @@ io.on("connection", (socket) => {
   // Register controllers
   roomController(io, socket, roomManager);
   gameController(io, socket, roomManager);
-  
+
   // Connection errors
   socket.on("error", (error) => {
     console.error(`Socket error for ${socket.id}:`, error);
