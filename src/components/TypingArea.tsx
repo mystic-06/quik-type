@@ -16,7 +16,11 @@ interface TypingAreaProps {
     charactersTyped: number;
     completionPercentage: number;
   }) => void;
+  onProgressChange?: (typed: string) => void;
+  initialInput?: string;
+  allowRetry?: boolean;
   isMultiplayer?: boolean;
+  fullWidth?: boolean;
 }
 
 type CharStatus = "untyped" | "correct" | "incorrect";
@@ -29,9 +33,13 @@ export default function TypingArea({
   onTestFinish,
   onTryAgain,
   onResultsSubmit,
+  onProgressChange,
+  initialInput = "",
+  allowRetry = true,
   isMultiplayer = false,
+  fullWidth = false,
 }: TypingAreaProps) {
-  const [userInput, setUserInput] = useState("");
+  const [userInput, setUserInput] = useState(initialInput);
   const [timeLeft, setTimeLeft] = useState(time);
   const [textSeed, setTextSeed] = useState(0);
 
@@ -186,7 +194,7 @@ export default function TypingArea({
       const charTop = activeChar.offsetTop;
       const containerHeight = container.clientHeight;
 
-      if (charTop - lineOffset >= containerHeight - 60) {
+      if (charTop - lineOffset >= containerHeight - 108) {
         setLineOffset((prev) => prev + 48);
       }
     }
@@ -207,8 +215,9 @@ export default function TypingArea({
       }
 
       setUserInput(value);
+      onProgressChange?.(value);
     },
-    [timeLeft, fullText.length, isTestActive, onTestStart]
+    [timeLeft, fullText.length, isTestActive, onTestStart, onProgressChange]
   );
 
   const handleKeyDown = useCallback(
@@ -267,7 +276,7 @@ export default function TypingArea({
   const timerPercent = isTestActive ? ((time - timeLeft) / time) * 100 : 0;
 
   return (
-    <div className="w-full max-w-5xl mx-auto">
+    <div className={fullWidth ? "w-full" : "w-full max-w-5xl mx-auto"}>
       {/* Timer */}
       <div
         className="flex justify-center mb-6 transition-all duration-300"
@@ -294,39 +303,45 @@ export default function TypingArea({
       {/* Typing area */}
       <div
         ref={containerRef}
-        className="relative h-56 nb-card p-6 md:p-8 overflow-hidden cursor-text"
+        className="relative h-72 md:h-80 nb-card p-6 md:p-10 overflow-hidden cursor-text"
         onClick={() => inputRef.current?.focus()}
       >
         <div
           key={textSeed}
-          className="flex flex-wrap text-[22px] md:text-[26px] leading-[2.6rem] transition-transform duration-200 font-mono"
+          className="flex flex-wrap text-[26px] md:text-[30px] leading-[3rem] transition-transform duration-200 font-mono"
           style={{ transform: `translateY(-${lineOffset}px)` }}
         >
-          {fullText.split("").map((char, index) => {
-            const status = charStatuses[index];
-            const isCurrent = index === currentIndex;
+          {(() => {
+            let textIndex = 0;
+            return fullText.split(" ").map((word, wordIndex, words) => {
+              const wordStart = textIndex;
+              textIndex += word.length;
+              const hasFollowingSpace = wordIndex < words.length - 1;
+              if (hasFollowingSpace) textIndex++;
 
-            let charClass = "text-[var(--text-muted)]";
-            if (status === "correct") {
-              charClass = "text-[var(--text)]";
-            } else if (status === "incorrect") {
-              charClass = "text-[var(--danger)] bg-[var(--danger)]/10";
-            }
+              const renderCharacter = (char: string, index: number) => {
+                const status = charStatuses[index];
+                const isCurrent = index === currentIndex;
+                let charClass = "text-[var(--text-muted)]";
+                if (status === "correct") charClass = "text-[var(--text)]";
+                else if (status === "incorrect") charClass = "text-[var(--danger)] bg-[var(--danger)]/10";
 
-            return (
-              <span
-                key={index}
-                id={`char-${index}`}
-                ref={setCharRef(index)}
-                className={`${charClass} ${isCurrent ? "relative" : ""}`}
-              >
-                {isCurrent && (
-                  <span className="absolute left-0 top-[0.1em] w-[3px] h-[1.15em] bg-[var(--secondary)] caret-blink" />
-                )}
-                {char === " " ? "\u00A0" : char}
-              </span>
-            );
-          })}
+                return (
+                  <span key={index} id={`char-${index}`} ref={setCharRef(index)} className={`${charClass} ${isCurrent ? "relative" : ""}`}>
+                    {isCurrent && <span className="absolute left-0 top-[0.1em] w-[3px] h-[1.15em] bg-[var(--secondary)] caret-blink" />}
+                    {char === " " ? "\u00A0" : char}
+                  </span>
+                );
+              };
+
+              return (
+                <span key={`${wordIndex}-${wordStart}`} className="whitespace-nowrap">
+                  {word.split("").map((char, charIndex) => renderCharacter(char, wordStart + charIndex))}
+                  {hasFollowingSpace && renderCharacter(" ", wordStart + word.length)}
+                </span>
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -371,7 +386,7 @@ export default function TypingArea({
               </div>
             </div>
 
-            <div className="flex justify-center">
+            {allowRetry && <div className="flex justify-center">
               <button
                 onClick={resetTest}
                 className="nb-btn nb-btn-secondary text-[var(--ts-base)] !px-8 !py-3"
@@ -379,7 +394,7 @@ export default function TypingArea({
                 <RotateCcw className="w-4 h-4" />
                 Try Again
               </button>
-            </div>
+            </div>}
           </div>
         </div>
       )}

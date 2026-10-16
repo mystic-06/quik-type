@@ -20,7 +20,12 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "QuikType — Speed Typing Test",
   description:
-    "Test and improve your typing speed with solo practice or multiplayer races. Track WPM, accuracy, and compete with friends.",
+    "Test and improve your typing speed with solo practice, multiplayer races, and live typing events. Track WPM and accuracy.",
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
