@@ -13,6 +13,11 @@ function cookieDomainAttribute() {
   return `; Domain=${domain}`;
 }
 
+function stateCookieAttributes() {
+  const production = process.env.NODE_ENV === "production";
+  return `; SameSite=${production ? "None" : "Lax"}${production ? "; Secure" : ""}`;
+}
+
 function configured() {
   return Boolean(process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID && process.env.OIDC_SESSION_SECRET?.length >= 32);
 }
@@ -156,8 +161,7 @@ function installOidcRoutes(app) {
       const challenge = crypto.createHash("sha256").update(verifier).digest("base64url");
       const url = new URL(metadata.authorization_endpoint);
       for (const [key, value] of Object.entries({ response_type: "code", client_id: process.env.OIDC_CLIENT_ID, redirect_uri: redirectUri, scope: process.env.OIDC_SCOPES || "openid profile email club", state, nonce, code_challenge: challenge, code_challenge_method: "S256" })) url.searchParams.set(key, value);
-      const stateCookiePolicy = process.env.NODE_ENV === "production" ? "; Secure" : "";
-      res.setHeader("Set-Cookie", `${STATE_COOKIE}=${state}; HttpOnly; Path=/auth/callback; SameSite=Lax; Max-Age=600${stateCookiePolicy}${cookieDomainAttribute()}`);
+      res.setHeader("Set-Cookie", `${STATE_COOKIE}=${state}; HttpOnly; Path=/auth/callback; Max-Age=600${stateCookieAttributes()}${cookieDomainAttribute()}`);
       res.redirect(url.toString());
     } catch (error) { res.status(503).type("text/plain").send(error.message); }
   });
@@ -168,8 +172,7 @@ function installOidcRoutes(app) {
       const pending = pendingLogins.get(state);
       pendingLogins.delete(state);
       if (!pending || pending.expiresAt < Date.now() || cookieValue(req, STATE_COOKIE) !== state || !req.query.code) {
-        const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-        res.setHeader("Set-Cookie", `${STATE_COOKIE}=; HttpOnly; Path=/auth/callback; SameSite=Lax; Max-Age=0${secure}${cookieDomainAttribute()}`);
+        res.setHeader("Set-Cookie", `${STATE_COOKIE}=; HttpOnly; Path=/auth/callback; Max-Age=0${stateCookieAttributes()}${cookieDomainAttribute()}`);
         return res.status(400).send("Invalid or expired sign-in request");
       }
       const metadata = await getDiscovery();
@@ -201,13 +204,12 @@ function installOidcRoutes(app) {
       const production = process.env.NODE_ENV === "production";
       const cookiePolicy = production ? "; SameSite=None; Secure" : "; SameSite=Lax";
       const domain = cookieDomainAttribute();
-      const stateCookieClear = `${STATE_COOKIE}=; HttpOnly; Path=/auth/callback; SameSite=Lax; Max-Age=0${production ? "; Secure" : ""}${domain}`;
+      const stateCookieClear = `${STATE_COOKIE}=; HttpOnly; Path=/auth/callback; Max-Age=0${stateCookieAttributes()}${domain}`;
       res.setHeader("Set-Cookie", [`${COOKIE_NAME}=${encodeURIComponent(signSession(principal))}; HttpOnly; Path=/; Max-Age=${sessionSeconds}${cookiePolicy}${domain}`, stateCookieClear]);
       const frontend = (process.env.FRONTEND_URL || "http://localhost:3002").split(",")[0].trim().replace(/\/$/, "");
       res.redirect(process.env.OIDC_POST_LOGIN_URL || `${frontend}/event`);
     } catch (error) {
-      const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-      res.setHeader("Set-Cookie", `${STATE_COOKIE}=; HttpOnly; Path=/auth/callback; SameSite=Lax; Max-Age=0${secure}${cookieDomainAttribute()}`);
+      res.setHeader("Set-Cookie", `${STATE_COOKIE}=; HttpOnly; Path=/auth/callback; Max-Age=0${stateCookieAttributes()}${cookieDomainAttribute()}`);
       res.status(401).type("text/plain").send(`Sign-in failed: ${error.message}`);
     }
   });
