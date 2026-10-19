@@ -14,14 +14,14 @@ module.exports = eventManager => {
     catch (error) { return routeError(res, error); }
   });
 
-  router.get("/event/history", requireSession, requireAdmin, (_req, res) => {
-    try { return res.json({ events: eventManager.listEvents() }); }
+  router.get("/event/history", requireSession, requireAdmin, async (_req, res) => {
+    try { return res.json({ events: await eventManager.listEvents() }); }
     catch (error) { return routeError(res, error); }
   });
 
-  router.get("/event/history/:eventId", requireSession, requireAdmin, (req, res) => {
+  router.get("/event/history/:eventId", requireSession, requireAdmin, async (req, res) => {
     try {
-      const event = eventManager.eventDetails(req.params.eventId);
+      const event = await eventManager.eventDetails(req.params.eventId);
       return event ? res.json({ event }) : res.status(404).json({ error: "Event not found" });
     } catch (error) { return routeError(res, error); }
   });
@@ -36,9 +36,9 @@ module.exports = eventManager => {
     catch (error) { return routeError(res, error); }
   });
 
-  router.post("/event/admin/create", requireTrustedOrigin, requireSession, requireAdmin, (req, res) => {
+  router.post("/event/admin/create", requireTrustedOrigin, requireSession, requireAdmin, async (req, res) => {
     try {
-      eventManager.createEvent(req.body || {});
+      await eventManager.createEvent(req.body || {});
       return res.json({ event: eventManager.adminSnapshot() });
     }
     catch (error) { return routeError(res, error); }

@@ -13,7 +13,7 @@ const MIN_WPM_ELAPSED_MS = 3000;
  * participant identities.
  */
 class EventManager {
-  constructor({ clock = () => Date.now(), textFactory = () => generate(200).join(" "), store = null } = {}) {
+  constructor({ clock = () => Date.now(), textFactory = () => generate(200).join(" "), store = null, initialState = null } = {}) {
     this.clock = clock;
     this.textFactory = textFactory;
     this.store = store;
@@ -23,7 +23,7 @@ class EventManager {
     this.closeTimeout = null;
     this.persistTimeout = null;
     this.nextAttemptId = 1;
-    const saved = this.store?.load();
+    const saved = initialState;
     if (saved) {
       this.event = this.restoreEvent(saved);
       for (const participant of this.event.participants.values()) participant.isOnline = false;
@@ -36,11 +36,20 @@ class EventManager {
     if (!this.store || !this.event) return;
     const save = () => {
       this.persistTimeout = null;
-      this.store.save({ ...this.serializeEvent(this.event), nextAttemptId: this.nextAttemptId });
+      this.store.save({ ...this.serializeEvent(this.event), nextAttemptId: this.nextAttemptId })
+        .catch(error => console.error("Failed to persist event state:", error));
     };
     if (this.persistTimeout) return;
     this.persistTimeout = setTimeout(save, 200);
     this.persistTimeout.unref?.();
+  }
+
+  async flushPersistence() {
+    if (this.persistTimeout) clearTimeout(this.persistTimeout);
+    this.persistTimeout = null;
+    if (this.store && this.event) {
+      await this.store.save({ ...this.serializeEvent(this.event), nextAttemptId: this.nextAttemptId });
+    }
   }
 
   restoreEvent(saved) {
@@ -89,7 +98,7 @@ class EventManager {
     }
   }
 
-  createEvent({ title = "QuikType Speed Typing Event", durationSeconds = 900 } = {}) {
+  async createEvent({ title = "QuikType Speed Typing Event", durationSeconds = 900 } = {}) {
     if (![600, 900].includes(durationSeconds)) {
       throw new Error("Event duration must be 10 or 15 minutes");
     }
@@ -97,7 +106,7 @@ class EventManager {
       throw new Error("An event is already active");
     }
     if (this.event?.status === "closed") {
-      this.store?.archive({ ...this.serializeEvent(this.event), nextAttemptId: this.nextAttemptId });
+      await this.store?.archive({ ...this.serializeEvent(this.event), nextAttemptId: this.nextAttemptId });
     }
     this.event = {
       id: `event-${randomUUID()}`,
@@ -143,6 +152,9 @@ class EventManager {
         this.finishAttempt(participant, participant.activeAttempt, true);
       }
     }
+    // Freeze the official standings once all in-progress attempts have been
+    // scored at the cutoff. The snapshot is included in the persisted event.
+    event.finalLeaderboard = this.calculateLeaderboard(event);
     this.persist();
     this.notify();
     return this.snapshot();
@@ -327,6 +339,13 @@ class EventManager {
   }
 
   leaderboard(event = this.requireEvent()) {
+    if (event.status === "closed" && Array.isArray(event.finalLeaderboard)) {
+      return event.finalLeaderboard.map(entry => ({ ...entry }));
+    }
+    return this.calculateLeaderboard(event);
+  }
+
+  calculateLeaderboard(event) {
     const sorted = [...event.participants.values()]
       .map(participant => {
         const best = participant.attempts.filter(attempt => attempt.eligible && !participant.invalidated)
@@ -356,8 +375,8 @@ class EventManager {
     };
   }
 
-  listEvents() {
-    const archived = this.store?.listHistory() || [];
+  async listEvents() {
+    const archived = await this.store?.listHistory() || [];
     const allEvents = this.event
       ? [this.event, ...archived.filter(item => item.id !== this.event.id).map(item => this.restoreEvent(item))]
       : archived.map(item => this.restoreEvent(item));
@@ -376,11 +395,11 @@ class EventManager {
     }));
   }
 
-  eventDetails(id) {
+  async eventDetails(id) {
     let event;
     if (this.event?.id === id) event = this.event;
     else {
-      const archived = this.store?.getHistory(id);
+      const archived = await this.store?.getHistory(id);
       if (archived) event = this.restoreEvent(archived);
     }
     if (!event) return null;

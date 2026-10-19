@@ -27,7 +27,8 @@ Live Application: [quik-type.vercel.app](https://quik-type.vercel.app)
 - Admin-created 10- or 15-minute windows with a fixed server-side close time.
 - Participants may take repeated 60-second attempts; their best attempt meeting the 80% accuracy floor is ranked by WPM, then accuracy.
 - Participants share the same generated prompt for each attempt number, so their rounds are comparable.
-- Event attempts and standings persist in SQLite at `EVENT_DATABASE_PATH`.
+- Final leaderboard positions are snapshotted when an event closes and retained with the event history.
+- Event attempts and standings persist in PostgreSQL on Neon.
 - Generic OIDC sign-in uses Authorization Code with PKCE and a server-side, HTTP-only session cookie. Configure the admin subject allowlist before opening the event.
 
 ## Tech Stack
@@ -48,7 +49,7 @@ Live Application: [quik-type.vercel.app](https://quik-type.vercel.app)
 ## Getting Started
 
 ### Prerequisites
-- Node.js 22.5 or later (the event feature uses the built-in SQLite module)
+- Node.js 22 or later
 - npm, yarn, or pnpm
 
 ### Installation
@@ -123,15 +124,15 @@ For deployments, set the following environment variables:
 - `OIDC_ADMIN_SUBJECTS`: Comma-separated OIDC `sub` values allowed to control the event.
 - `OIDC_SESSION_SECRET`: Random server-only secret used to sign the HTTP-only session cookie. Use at least 32 random bytes.
 - `OIDC_COOKIE_DOMAIN`: Optional shared parent domain (for example `.example.com`) when the frontend and backend use sibling subdomains.
-- `EVENT_DATABASE_PATH`: SQLite file path (defaults to `./data/event.sqlite`). Keep this file on durable storage and back it up for final results.
+- `DATABASE_URL`: Neon PostgreSQL connection string. Use the pooled connection string (`-pooler` in the hostname) for the backend, and keep this value private on the backend only.
 
-Generate a local session secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`. Register the exact callback URL (`http://localhost:3001/auth/callback` locally, your public API URL plus `/auth/callback` in production) as an app in [USAR FOSS OIDC](https://github.com/USAR-FOSS/OIDC/blob/main/docs/ADDING-AN-APP.md). Use a confidential client with `client_secret_basic`, Authorization Code + PKCE S256, and scopes `openid profile email club`. User identity comes from the verified `sub`; the leaderboard display name uses `name`. Add event admins to `OIDC_ADMIN_SUBJECTS` by their OIDC `sub`. In production, point `EVENT_DATABASE_PATH` at a persistent volume; the backend Docker image exposes `/usr/src/app/data` for this purpose.
+Generate a local session secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"`. Register the exact callback URL (`http://localhost:3001/auth/callback` locally, your public API URL plus `/auth/callback` in production) as an app in [USAR FOSS OIDC](https://github.com/USAR-FOSS/OIDC/blob/main/docs/ADDING-AN-APP.md). Use a confidential client with `client_secret_basic`, Authorization Code + PKCE S256, and scopes `openid profile email club`. User identity comes from the verified `sub`; the leaderboard display name uses `name`. Add event admins to `OIDC_ADMIN_SUBJECTS` by their OIDC `sub`. Create a Neon database and set its pooled PostgreSQL connection string as `DATABASE_URL` on the backend service. The server creates its event tables automatically at startup; no separate migration command is needed.
 
 The OIDC client must allow the Authorization Code flow with PKCE S256 and the configured scopes. ID tokens signed with RS256 or ES256 are supported. The app reads the configured display-name claim from the verified ID token or the OIDC UserInfo response.
 
 In production, serve the frontend and API from the same site (for example `app.example.com` and `api.example.com`) so browsers accept the HTTP-only session cookie. Set `OIDC_COOKIE_DOMAIN` to the shared parent domain when needed. A frontend and API on unrelated domains may be blocked by third-party cookie restrictions.
 
-The event backend needs Node.js 22.5 or later for `node:sqlite`; update any deployment runtime from Node 20 before enabling the event. Configure OIDC before opening an event. Without it, event APIs reject unauthenticated access. Casual multiplayer remains available without OIDC.
+Configure `DATABASE_URL` and OIDC before opening an event. Keep one backend instance active because live event state and timers are held in that process; Neon stores durable event state and history across restarts. Without OIDC, event APIs reject unauthenticated access. Casual multiplayer remains available without OIDC.
 
 ## Project Structure
 
@@ -156,7 +157,7 @@ src/
     ├── config/            # CORS and server configurations
     ├── controllers/       # Socket.IO connection event controllers
     ├── jobs/              # Background clean-up scripts
-    ├── managers/          # Room and SQLite-backed event state
+    ├── managers/          # Room and PostgreSQL-backed event state
     ├── routes/            # REST API endpoints
     └── index.js           # Server entry point
 ```

@@ -15,53 +15,62 @@ const EventStore = require("./managers/EventStore");
 const { EventManager } = require("./managers/EventManager");
 const { installOidcRoutes } = require("./auth/oidc");
 
-const app = express();
-// Configure CORS for Express
-app.use(cors(corsOptions));
-app.use(express.json());
-installOidcRoutes(app);
+async function startServer() {
+  const store = new EventStore();
+  await store.initialize();
+  const initialState = await store.load();
 
-const server = createServer(app);
+  const app = express();
+  app.use(cors(corsOptions));
+  app.use(express.json());
+  installOidcRoutes(app);
 
-// Instantiate state manager
-const roomManager = new RoomManager();
-const eventManager = new EventManager({ store: new EventStore() });
+  const server = createServer(app);
+  const roomManager = new RoomManager();
+  const eventManager = new EventManager({ store, initialState });
 
-// Apply REST API routes
-app.use("/", apiRoutes(roomManager));
-app.use("/", eventApi(eventManager));
+  app.use("/", apiRoutes(roomManager));
+  app.use("/", eventApi(eventManager));
+  startCronJobs(roomManager);
 
-// Start background tasks
-startCronJobs(roomManager);
-
-// Configure Socket.IO with enhanced CORS and connection handling
-const io = new Server(server, {
-  cors: corsOptions,
-  connectionStateRecovery: {
-    // Enable connection state recovery
-    maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
-    skipMiddlewares: true,
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-});
-eventManager.onUpdate = (state) => io.to("typing-event").emit("event-state-changed", state);
-
-// Connection handling
-io.on("connection", (socket) => {
-  // Register controllers
-  roomController(io, socket, roomManager);
-  gameController(io, socket, roomManager);
-  eventController(io, socket, eventManager);
-
-  // Connection errors
-  socket.on("error", (error) => {
-    console.error(`Socket error for ${socket.id}:`, error);
+  const io = new Server(server, {
+    cors: corsOptions,
+    connectionStateRecovery: {
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      skipMiddlewares: true,
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
   });
-});
+  eventManager.onUpdate = state => io.to("typing-event").emit("event-state-changed", state);
 
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Socket.IO server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  io.on("connection", socket => {
+    roomController(io, socket, roomManager);
+    gameController(io, socket, roomManager);
+    eventController(io, socket, eventManager);
+    socket.on("error", error => console.error(`Socket error for ${socket.id}:`, error));
+  });
+
+  const PORT = process.env.PORT || 3001;
+  server.listen(PORT, () => {
+    console.log(`Socket.IO server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  });
+
+  const shutdown = async () => {
+    server.close();
+    io.close();
+    try {
+      await eventManager.flushPersistence();
+      await store.close();
+    }
+    catch (error) { console.error("Error closing event database:", error); }
+  };
+  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
+}
+
+startServer().catch(error => {
+  console.error("Failed to start server:", error);
+  process.exitCode = 1;
 });

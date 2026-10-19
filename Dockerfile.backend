@@ -9,6 +9,5 @@ RUN npm ci --omit=dev
 COPY server/ ./server/
 
 EXPOSE 3001
-VOLUME ["/usr/src/app/data"]
 
 CMD ["node", "server/index.js"]
