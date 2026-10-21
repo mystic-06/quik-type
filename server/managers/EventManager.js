@@ -52,6 +52,17 @@ class EventManager {
     }
   }
 
+  /** Stops every timer (the close timer and each running attempt's). The state itself is untouched; for shutdown and tests. */
+  dispose() {
+    clearTimeout(this.closeTimeout);
+    this.closeTimeout = null;
+    clearTimeout(this.persistTimeout);
+    this.persistTimeout = null;
+    for (const participant of this.event?.participants.values() ?? []) {
+      clearTimeout(participant.activeAttempt?.timeout);
+    }
+  }
+
   restoreEvent(saved) {
     // Normalize persisted events written by older versions before the admin
     // invalidation history and participant removal reason were added.

@@ -17,16 +17,16 @@ const FAST = {
 const WORDS = Array.from({ length: 60 }, (_, i) => `word${i}`);
 const TEXT = WORDS.join(" ");
 
-async function startServer({ settings = {}, env = {}, words = () => WORDS } = {}) {
-  const game = createGameServer({ settings: { ...FAST, ...settings }, env: { NODE_ENV: "test", ...env }, words, log: () => {} });
+async function startServer({ settings = {}, env = {}, words = () => WORDS, eventStore = null } = {}) {
+  const game = createGameServer({ settings: { ...FAST, ...settings }, env: { NODE_ENV: "test", ...env }, words, log: () => {}, eventStore });
   const port = await game.start(0);
   return { game, port, url: `http://127.0.0.1:${port}` };
 }
 
 let counter = 0;
 /** A client with its own browser secret. `secret` can be reused to simulate the same browser reconnecting. */
-function connect(url, { secret = `secret-${Date.now()}-${++counter}-padding-padding` } = {}) {
-  const socket = io(url, { auth: { secret }, transports: ["websocket"], reconnection: false, forceNew: true });
+function connect(url, { secret = `secret-${Date.now()}-${++counter}-padding-padding`, headers = {} } = {}) {
+  const socket = io(url, { auth: { secret }, transports: ["websocket"], reconnection: false, forceNew: true, extraHeaders: headers });
   const seen = [];
   socket.onAny((event, ...args) => seen.push({ event, args }));
   const client = {

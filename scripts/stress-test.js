@@ -155,19 +155,19 @@ async function simulatePlayer(userId) {
   socket.on("test-start", (testText, duration) => {
     stats.testsStarted++;
 
-    // Simulate typing: wait a realistic fraction of time or 3 seconds, then submit
-    const playDurationMs = Math.min((duration || 15) * 1000, 4000);
+    // The server scores what was typed and refuses a result sent before the time is up, so a bot "types" a stretch of the real text
+    // (with the odd typo) and submits just before the deadline.
+    const waitMs = Math.max(((duration || 15) * 1000) - 1000, 0);
     setTimeout(() => {
-      const mockResult = {
-        wpm: Math.floor(50 + Math.random() * 50),
-        rawWpm: Math.floor(55 + Math.random() * 50),
-        accuracy: Math.floor(90 + Math.random() * 10),
-        charactersTyped: Math.floor(200 + Math.random() * 100),
-        completionPercentage: 100,
-      };
-      socket.emit("submit-results", mockResult);
+      const length = Math.min(Math.floor(120 + Math.random() * 130), testText.length);
+      const typed = testText
+        .slice(0, length)
+        .split("")
+        .map((char) => (Math.random() < 0.03 ? "#" : char))
+        .join("");
+      socket.emit("submit-results", { typed });
       stats.resultsSubmitted++;
-    }, playDurationMs);
+    }, waitMs);
   });
 
   socket.on("final-rankings", (rankings) => {

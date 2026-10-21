@@ -1,7 +1,10 @@
 // Which browser origins may talk to this server.
 //
-// Nothing here is a login: the game uses no cookies, so CORS only decides which web pages a browser lets read the responses. Non-browser
-// clients send no Origin and are always let through; abuse by those is limited separately (lib/rateLimit.js).
+// The game itself uses no cookies (a player is a header or a socket auth value), so for it CORS only decides which web pages a browser
+// lets read the responses. The event sign-in (/auth, /event and the event sockets) IS a cookie, so those are held to a stricter list:
+// only the exact frontends in FRONTEND_URL (and localhost outside production), never the preview-deployment patterns. A page on another
+// site, including a look-alike preview deployment, cannot act as a signed-in organizer or participant.
+// Non-browser clients send no Origin and are always let through; abuse by those is limited separately (lib/rateLimit.js).
 
 const DEFAULT_FRONTEND = "https://quik-type.vercel.app";
 // Preview deployments of this project on Vercel
@@ -35,13 +38,32 @@ function buildOriginPolicy(env = process.env) {
     return url.protocol === "https:" && patterns.some((pattern) => pattern.test(url.hostname));
   }
 
+  /** Exact frontends only (no patterns): the origins that may use the cookie-based event sign-in. */
+  function isTrusted(origin) {
+    if (!origin) return false;
+    let url;
+    try {
+      url = new URL(origin);
+    } catch {
+      return false;
+    }
+    return exact.has(url.origin) || (allowLocalhost && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname));
+  }
+
   const corsOptions = {
     origin: (origin, callback) => callback(null, isAllowed(origin)),
     methods: ["GET", "POST"],
     credentials: false,
   };
 
-  return { isAllowed, corsOptions, allowedOrigins: [...exact] };
+  // For the routes that carry the event session cookie
+  const credentialedCorsOptions = {
+    origin: (origin, callback) => callback(null, isTrusted(origin)),
+    methods: ["GET", "POST"],
+    credentials: true,
+  };
+
+  return { isAllowed, isTrusted, corsOptions, credentialedCorsOptions, allowedOrigins: [...exact] };
 }
 
 module.exports = { buildOriginPolicy };

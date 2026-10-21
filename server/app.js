@@ -18,6 +18,10 @@ const adminRoutes = require("./routes/admin");
 const startCronJobs = require("./jobs/cron");
 const roomController = require("./controllers/roomController");
 const gameController = require("./controllers/gameController");
+const eventController = require("./controllers/eventController");
+const eventApi = require("./routes/eventApi");
+const { installOidcRoutes } = require("./auth/oidc");
+const { EventManager } = require("./managers/EventManager");
 
 // Per-socket limits on each event: a burst, then a steady rate
 const EVENT_RULES = {
@@ -32,19 +36,27 @@ const EVENT_RULES = {
 
 /**
  * Builds the whole server without starting it, so tests can run it on any port with short timings.
- * `start()` restores saved rooms (when Redis is configured) and begins listening; `stop()` saves and shuts down cleanly.
+ * `start()` restores saved rooms (when Redis is configured), brings up the typing event (when a database is configured) and begins
+ * listening; `stop()` saves and shuts down cleanly. `eventStore` is for tests: any object with the EventStore methods.
  */
-function createGameServer({ settings: overrides = {}, words, env = process.env, log = console.log } = {}) {
+function createGameServer({ settings: overrides = {}, words, env = process.env, log = console.log, eventStore = null } = {}) {
   const settings = buildSettings(overrides);
   const policy = buildOriginPolicy(env);
 
   const app = express();
   app.disable("x-powered-by");
-  app.use(cors(policy.corsOptions));
+  // The event sign-in routes carry a cookie, so they get credentialed CORS for the exact frontends only. Everything else gets the
+  // game's CORS, which never allows credentials. The credentialed one is mounted first and the other skips those paths, so a
+  // preflight is answered once, by the right policy.
+  const gameCors = cors(policy.corsOptions);
+  const isCookiePath = (path) => /^\/(event|auth)(\/|$)/.test(path);
+  app.use(["/event", "/auth"], cors(policy.credentialedCorsOptions));
+  app.use((req, res, next) => (isCookiePath(req.path) ? next() : gameCors(req, res, next)));
 
   const server = http.createServer(app);
   const io = new Server(server, {
-    cors: policy.corsOptions,
+    // Credentials are allowed so the event sign-in cookie reaches the socket; it is only honoured for exact frontends (see below)
+    cors: { ...policy.corsOptions, credentials: true },
     // Browsers do not apply CORS to a WebSocket upgrade, so the origin is checked here as well
     allowRequest: (req, callback) => callback(null, policy.isAllowed(req.headers.origin)),
     // The largest legitimate message is the typed text of one round (about 1.5 KB)
@@ -114,13 +126,6 @@ function createGameServer({ settings: overrides = {}, words, env = process.env, 
   app.use("/", teamRoutes({ manager, roster, settings, teamLimiter }));
   app.use("/", adminRoutes({ manager, roster, leaderboard, settings }));
 
-  // A request body that is too large or not valid JSON gets a JSON answer, not an HTML error page
-  app.use((err, _req, res, _next) => {
-    const status = err.status && err.status >= 400 && err.status < 500 ? err.status : 500;
-    if (status === 500) console.error("Request failed:", err);
-    res.status(status).json({ error: status === 500 ? "Something went wrong" : "Invalid request" });
-  });
-
   io.use((socket, next) => {
     const ip = clientIp(socket.handshake.headers, socket.handshake.address, settings.trustProxyHops);
     if (!connections.admit(ip)) {
@@ -137,6 +142,8 @@ function createGameServer({ settings: overrides = {}, words, env = process.env, 
     const ctx = { io, socket, manager, limiter };
     roomController(ctx);
     gameController(ctx);
+    // The typing event identifies people by their sign-in cookie, so only a page on one of our own frontends may use it
+    if (eventManager && policy.isTrusted(socket.handshake.headers.origin)) eventController(io, socket, eventManager);
 
     socket.emit("identity", { id: socket.data.pubId });
 
@@ -148,6 +155,34 @@ function createGameServer({ settings: overrides = {}, words, env = process.env, 
   });
 
   let stopCron = () => {};
+  let eventManager = null;
+  let events = null;
+
+  /**
+   * The typing event (sign in with the club account, timed attempts, admin console, history). It needs a database for its state; without
+   * DATABASE_URL, or if the database cannot be reached, the rooms game still runs and /event answers 503.
+   */
+  async function startEvents() {
+    installOidcRoutes(app); // sign-in does not depend on the database
+    const wanted = eventStore || env.DATABASE_URL;
+    if (!wanted) {
+      log("No DATABASE_URL: the typing event is off.");
+      return;
+    }
+    try {
+      const store = eventStore ?? new (require("./managers/EventStore"))({ connectionString: env.DATABASE_URL });
+      await store.initialize();
+      eventManager = new EventManager({ store, initialState: await store.load() });
+      eventManager.onUpdate = (state) => io.to("typing-event").emit("event-state-changed", state);
+      app.use("/event", express.json({ limit: "16kb" })); // the event router declares its own /event/... paths
+      app.use("/", eventApi(eventManager));
+      events = { store };
+    } catch (err) {
+      console.error("The typing event could not start (is the database reachable?):", err.message);
+      eventManager = null;
+      app.use("/event", (_req, res) => res.status(503).json({ error: "The event service is unavailable." }));
+    }
+  }
 
   async function start(port) {
     if (getRedis()) {
@@ -173,6 +208,15 @@ function createGameServer({ settings: overrides = {}, words, env = process.env, 
       mirror.enable();
     }
 
+    await startEvents();
+
+    // A request body that is too large or not valid JSON gets a JSON answer, not an HTML error page. Last, so it covers every route.
+    app.use((err, _req, res, _next) => {
+      const status = err.status && err.status >= 400 && err.status < 500 ? err.status : 500;
+      if (status === 500) console.error("Request failed:", err);
+      res.status(status).json({ error: status === 500 ? "Something went wrong" : "Invalid request" });
+    });
+
     stopCron = startCronJobs({ manager, leaderboard, settings, limiters: [connections, requestLimiter, teamLimiter], log });
     await new Promise((resolve, reject) => {
       server.once("error", reject);
@@ -188,6 +232,15 @@ function createGameServer({ settings: overrides = {}, words, env = process.env, 
     stopCron();
     io.emit("server-restarting");
     guard.reset(); // one real attempt to save, even if a recent blip paused Redis
+    if (eventManager) {
+      try {
+        await eventManager.flushPersistence();
+        eventManager.dispose();
+        await events?.store.close?.();
+      } catch (err) {
+        console.error("Error closing the event database:", err);
+      }
+    }
     await roster.flush();
     await Promise.race([leaderboard.flushPending(), new Promise((resolve) => setTimeout(resolve, 2000))]);
     if (mirror) await mirror.shutdown();
