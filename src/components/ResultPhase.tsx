@@ -1,5 +1,4 @@
-import { Trophy, Gauge, Crosshair, Zap, RotateCcw, LogOut, Crown, Medal, UsersRound } from "lucide-react";
-import type { TeamResult, TeamStanding } from "@/hooks/useSocket";
+import { Trophy, Gauge, Crosshair, Zap, RotateCcw, LogOut, Crown, Medal } from "lucide-react";
 
 interface PlayerResult {
   id: string;
@@ -17,12 +16,9 @@ interface ResultPhaseProps {
   currentUserId: string;
   isHost?: boolean;
   onPlayAgain?: () => void;
-  /** In a team room: the team's average for this round, and where it stands on the team leaderboard. */
-  teamResult?: TeamResult | null;
-  teamStanding?: TeamStanding | null;
 }
 
-export default function ResultPhase({ rankings, currentUserId, isHost = false, onPlayAgain, teamResult = null, teamStanding = null }: ResultPhaseProps) {
+export default function ResultPhase({ rankings, currentUserId, isHost = false, onPlayAgain }: ResultPhaseProps) {
   if (!rankings || rankings.length === 0) {
     return (
       <div className="w-full max-w-4xl mx-auto p-6 animate-fade-in-up">
@@ -116,27 +112,6 @@ export default function ResultPhase({ rankings, currentUserId, isHost = false, o
               </p>
             </div>
           </div>
-        </div>
-      )}
-
-      {teamResult && (
-        <div className="nb-card-primary p-6 mb-8 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <UsersRound className="w-4 h-4" />
-            <span className="text-[var(--ts-xs)] font-bold uppercase tracking-wider">Team average</span>
-          </div>
-          <p className="text-[var(--ts-lg)] font-black">{teamResult.name}</p>
-          <p className="text-[var(--ts-3xl,2.25rem)] font-black font-mono leading-tight">
-            {teamResult.averageWpm} <span className="text-[var(--ts-sm)] font-bold">WPM</span>
-          </p>
-          <p className="text-[var(--ts-sm)] font-bold">{teamResult.averageAccuracy}% accuracy across {teamResult.members} {teamResult.members === 1 ? "player" : "players"}</p>
-          <p className="text-[var(--ts-sm)] mt-2 font-medium">
-            {!teamResult.counted
-              ? "This round did not count for the team leaderboard (every member must finish, and the team must be full)."
-              : teamStanding
-              ? `Team leaderboard: #${teamStanding.rank} (best ${teamStanding.bestWpm} WPM at ${teamStanding.duration}s)`
-              : "Placing the team on the leaderboard..."}
-          </p>
         </div>
       )}
 

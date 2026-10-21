@@ -1,73 +1,140 @@
-const { onEvent } = require("../lib/handler");
-const { GameError } = require("../lib/errors");
-const { normalizeRoomId, cleanUsername } = require("../lib/validate");
+module.exports = (io, socket, roomManager) => {
+  const handleDisconnection = () => {
+    if (!socket.roomId) return;
 
-module.exports = ({ io, socket, manager, limiter }) => {
-  // Leaving an open room frees the seat. A team member who only moves to another page keeps their seat (`keepSeat`); leaving the team
-  // is the explicit "leave-room" event.
-  const leaveCurrentRoom = ({ keepSeat = false } = {}) => {
-    const roomId = socket.data.roomId;
-    if (!roomId) return;
-    socket.data.roomId = null;
-    socket.leave(roomId);
-    if (keepSeat && manager.getRoom(roomId)?.kind === "team") manager.socketDisconnected(roomId, socket.data.key, socket.id);
-    else manager.removePlayer(roomId, socket.data.key);
+    try {
+      const room = roomManager.removeParticipant(socket.roomId, socket.id);
+
+      if (room) {
+        // Notify remaining participants
+        io.to(socket.roomId).emit("participant-left", socket.id);
+
+        // If host left and there's a new host, notify about host change
+        const newHost = Array.from(room.participants.values()).find(
+          (p) => p.isHost
+        );
+        if (newHost && newHost.id !== socket.id) {
+          io.to(socket.roomId).emit("host-changed", newHost.id);
+        }
+      }
+
+      socket.leave(socket.roomId);
+
+    } catch (error) {
+      console.error("Error handling disconnection:", error);
+    }
   };
 
-  const joinRoom = (rawRoomId, rawUsername) => {
-    const roomId = normalizeRoomId(rawRoomId);
-    if (!roomId) throw new GameError("Room code must be 3 to 16 letters, numbers, - or _");
-    const username = cleanUsername(rawUsername);
-    if (!username) throw new GameError("Username must be 1 to 20 characters");
+  const joinRoom = (roomId, username) => {
+    try {
+      // Validate input
+      if (!roomId || !username) {
+        socket.emit("error", "Room ID and username are required");
+        return;
+      }
 
-    // A socket sits in one room at a time: moving rooms leaves the old one instead of leaving a ghost behind
-    if (socket.data.roomId && socket.data.roomId !== roomId) leaveCurrentRoom({ keepSeat: true });
+      if (username.length > 20) {
+        socket.emit("error", "Username must be 20 characters or less");
+        return;
+      }
 
-    const { room, player, displacedSocketId, rejoined } = manager.join({
-      roomId,
-      key: socket.data.key,
-      pubId: socket.data.pubId,
-      username,
-      socketId: socket.id,
-    });
+      let room = roomManager.getRoom(roomId);
 
-    // The same player in another tab: the newest tab wins and the older one is told why
-    if (displacedSocketId) {
-      const older = io.sockets.sockets.get(displacedSocketId);
-      older?.emit("session-replaced");
-      older?.disconnect(true);
-    }
+      // Create room if it doesn't exist
+      if (!room) {
+        room = roomManager.createRoom(roomId, socket.id);
+      }
 
-    socket.join(roomId);
-    socket.data.roomId = roomId;
+      // Check if room is full (max 8 participants)
+      if (room.participants.size >= 8) {
+        socket.emit("error", "Room is full");
+        return;
+      }
 
-    socket.emit("room-joined", { ...manager.publicRoom(room), you: player.pubId });
-    const view = manager.publicPlayer(room, player);
-    socket.to(roomId).emit("participant-joined", view);
-    if (rejoined) socket.to(roomId).emit("participant-status", player.pubId, true);
+      // Check if test is in progress
+      if (room.phase === "test" || room.phase === "countdown") {
+        socket.emit("error", "Cannot join room during active test");
+        return;
+      }
 
-    // A player coming back mid-round is caught up on where the round is
-    const now = Date.now();
-    if (room.phase === "countdown") {
-      socket.emit("countdown-start", Math.max(1, Math.ceil((room.countdownEndsAt - now) / 1000)));
-    } else if (room.phase === "test" && !player.finalResults) {
-      const remaining = Math.max(1, Math.ceil((room.testEndsAt - now) / 1000));
-      socket.emit("test-start", room.testText, remaining, { endsAt: room.testEndsAt, serverNow: now });
-    } else if (room.phase === "results" && room.rankings) {
-      socket.emit("final-rankings", room.rankings);
+      const participant = {
+        id: socket.id,
+        username: username,
+        isReady: false,
+        isHost: socket.id === room.hostId,
+        currentProgress: {
+          wpm: 0,
+          accuracy: 100,
+          charactersTyped: 0,
+          completionPercentage: 0,
+        },
+        finalResults: null,
+      };
+
+      roomManager.addParticipant(roomId, participant);
+      socket.join(roomId);
+
+      // Store room info on socket
+      socket.roomId = roomId;
+      socket.username = username;
+
+      // Send room state to joining user
+      socket.emit("room-joined", {
+        ...room,
+        participants: Array.from(room.participants.values()),
+      });
+
+      // Notify other participants
+      socket.to(roomId).emit("participant-joined", participant);
+
+    } catch (error) {
+      console.error("Error in join-room:", error);
+      socket.emit("error", "Failed to join room");
     }
   };
 
   const restartRoom = () => {
-    manager.restart(socket.data.roomId, socket.data.key);
+    try {
+      const room = roomManager.getRoom(socket.roomId);
+      if (!room) {
+        socket.emit("error", "Room not found");
+        return;
+      }
+
+      if (socket.id !== room.hostId) {
+        socket.emit("error", "Only host can restart room");
+        return;
+      }
+
+      // Clear any active timers
+      roomManager.clearRoomTimers(room);
+
+      // Reset all participants
+      const allParticipants = Array.from(room.participants.values());
+      allParticipants.forEach(p => {
+        p.isReady = false;
+        p.finalResults = null;
+      });
+
+      // Reset room phase
+      room.phase = "setup";
+
+      // Notify all participants about the restart
+      io.to(socket.roomId).emit("room-restarted", {
+        ...room,
+        participants: allParticipants,
+      });
+
+    } catch (error) {
+      console.error("Error in restart-room:", error);
+      socket.emit("error", "Failed to restart room");
+    }
   };
 
-  onEvent(socket, limiter, "join-room", joinRoom);
-  onEvent(socket, limiter, "restart-room", restartRoom);
-  onEvent(socket, limiter, "leave-room", () => leaveCurrentRoom());
-  // The captain fixes a team at the players it has, so a team missing someone can still play
-  onEvent(socket, limiter, "lock-roster", () => {
-    if (!socket.data.roomId) throw new GameError("Room not found");
-    manager.lockRoster(socket.data.roomId, socket.data.key);
+  socket.on("join-room", joinRoom);
+  socket.on("restart-room", restartRoom);
+  socket.on("leave-room", handleDisconnection);
+  socket.on("disconnect", (reason) => {
+    handleDisconnection();
   });
 };

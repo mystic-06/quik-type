@@ -1,7 +1,13 @@
 "use client";
 
-import { Check, Crown, Clock, User, Lock } from "lucide-react";
-import type { Participant, Team } from "@/hooks/useSocket";
+import { Check, Crown, Clock, User } from "lucide-react";
+
+interface Participant {
+  id: string;
+  username: string;
+  isReady: boolean;
+  isHost: boolean;
+}
 
 interface SetupPhaseProps {
   isHost: boolean;
@@ -12,10 +18,6 @@ interface SetupPhaseProps {
   onConfigChange: (config: { timerDuration: number }) => void;
   onReadyToggle: () => void;
   currentUserId: string;
-  /** Set in a team room: the team's size and rules replace the open-room ones. */
-  team?: Team | null;
-  /** The captain fixes the team at the players it has now. */
-  onLockRoster?: () => void;
 }
 
 const TIMER_OPTIONS = [15, 30, 60, 120];
@@ -27,16 +29,11 @@ export default function SetupPhase({
   onConfigChange,
   onReadyToggle,
   currentUserId,
-  team = null,
-  onLockRoster,
 }: SetupPhaseProps) {
   const currentUser = participants.find((p) => p.id === currentUserId);
   const isCurrentUserReady = currentUser?.isReady || false;
-  const playing = participants.filter((p) => !p.excused);
-  const readyCount = playing.filter((p) => p.isReady).length;
-  const missing = team ? Math.max(team.targetSize - participants.length, 0) : 0;
-  const allReady = team ? missing === 0 && playing.length > 0 && readyCount === playing.length : readyCount === playing.length && participants.length > 1;
-  const leaderLabel = team ? "Captain" : "Host";
+  const readyCount = participants.filter((p) => p.isReady).length;
+  const allReady = readyCount === participants.length && participants.length > 1;
 
   const handleTimerChange = (duration: number) => {
     if (isHost) {
@@ -57,7 +54,7 @@ export default function SetupPhase({
             <h2 className="text-[var(--ts-lg)] font-black">Timer</h2>
             {!isHost && (
               <span className="nb-badge ml-auto bg-[var(--surface-alt)]">
-                {team ? "Captain only" : "Host only"}
+                Host only
               </span>
             )}
           </div>
@@ -90,7 +87,7 @@ export default function SetupPhase({
             </div>
             <h2 className="text-[var(--ts-lg)] font-black">Players</h2>
             <span className="nb-badge ml-auto bg-[var(--surface-alt)] font-mono">
-              {participants.length}/{team ? team.targetSize : 8}
+              {participants.length}/8
             </span>
           </div>
 
@@ -121,22 +118,16 @@ export default function SetupPhase({
                       {participant.isHost && (
                         <span className="nb-badge bg-[var(--primary)] text-[10px]">
                           <Crown className="w-2.5 h-2.5" />
-                          {leaderLabel}
+                          Host
                         </span>
                       )}
                       {isMe && (
                         <span className="text-[var(--ts-xs)] text-[var(--text-muted)] font-medium">(you)</span>
                       )}
-                      {participant.connected === false && (
-                        <span className="text-[var(--ts-xs)] text-[var(--text-muted)] font-medium">offline</span>
-                      )}
                     </div>
                   </div>
 
                   {/* Ready indicator */}
-                  {participant.excused ? (
-                    <span className="nb-badge bg-[var(--surface-alt)] text-[10px]">Excused</span>
-                  ) : (
                   <div
                     className={`flex items-center gap-1.5 text-[var(--ts-xs)] font-bold ${
                       participant.isReady ? "text-[var(--success)]" : "text-[var(--text-muted)]"
@@ -151,7 +142,6 @@ export default function SetupPhase({
                     </div>
                     <span>{participant.isReady ? "Ready" : "Waiting"}</span>
                   </div>
-                  )}
                 </div>
               );
             })}
@@ -172,24 +162,10 @@ export default function SetupPhase({
           {isCurrentUserReady ? "✓ Ready!" : "Ready Up"}
         </button>
 
-        {team && missing > 0 && (
-          <div className="text-center">
-            <p className="text-[var(--ts-sm)] font-bold text-[var(--text-secondary)]">
-              Waiting for {missing} more {missing === 1 ? "teammate" : "teammates"}. Share the code{" "}
-              <span className="font-mono font-black text-[var(--secondary)] tracking-widest">{team.code}</span>.
-            </p>
-            {isHost && onLockRoster && participants.length >= 1 && (
-              <button onClick={onLockRoster} className="nb-btn nb-btn-ghost mt-3">
-                <Lock className="w-4 h-4" /> Start with {participants.length} {participants.length === 1 ? "player" : "players"}
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Progress */}
         <div className="w-full max-w-xs">
           <div className="flex items-center justify-between text-[var(--ts-xs)] font-bold text-[var(--text-muted)] mb-2">
-            <span>{readyCount}/{playing.length} ready</span>
+            <span>{readyCount}/{participants.length} ready</span>
             {allReady && (
               <span className="text-[var(--success)] animate-pulse">
                 Starting countdown...
@@ -200,7 +176,7 @@ export default function SetupPhase({
             <div
               className="h-full transition-all duration-500 ease-out"
               style={{
-                width: `${(readyCount / Math.max(playing.length, 1)) * 100}%`,
+                width: `${(readyCount / Math.max(participants.length, 1)) * 100}%`,
                 background: allReady ? "var(--success)" : "var(--secondary)",
               }}
             />

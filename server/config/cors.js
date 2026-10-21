@@ -1,47 +1,47 @@
-// Which browser origins may talk to this server.
-//
-// Nothing here is a login: the game uses no cookies, so CORS only decides which web pages a browser lets read the responses. Non-browser
-// clients send no Origin and are always let through; abuse by those is limited separately (lib/rateLimit.js).
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(",").map(url => url.trim().replace(/\/$/, ""))
+  : ["https://quik-type.vercel.app"];
 
-const DEFAULT_FRONTEND = "https://quik-type.vercel.app";
-// Preview deployments of this project on Vercel
-const DEFAULT_PATTERNS = ["quik-type*.vercel.app"];
-
-const splitList = (value) =>
-  String(value ?? "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-const globToRegExp = (glob) =>
-  new RegExp("^" + glob.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join("[a-z0-9-]*") + "$", "i");
-
-function buildOriginPolicy(env = process.env) {
-  const production = env.NODE_ENV === "production";
-  const exact = new Set((splitList(env.FRONTEND_URL).length ? splitList(env.FRONTEND_URL) : [DEFAULT_FRONTEND]).map((url) => url.replace(/\/$/, "")));
-  const patterns = (splitList(env.ALLOWED_ORIGIN_PATTERNS).length ? splitList(env.ALLOWED_ORIGIN_PATTERNS) : DEFAULT_PATTERNS).map(globToRegExp);
-  const allowLocalhost = !production || env.ALLOW_LOCALHOST_ORIGINS === "true";
-
-  function isAllowed(origin) {
-    if (!origin) return true;
-    let url;
-    try {
-      url = new URL(origin);
-    } catch {
-      return false;
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin 
+    if (!origin) {
+      callback(null, true);
+      return;
     }
-    if (exact.has(url.origin)) return true;
-    if (allowLocalhost && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)) return true;
-    return url.protocol === "https:" && patterns.some((pattern) => pattern.test(url.hostname));
-  }
 
-  const corsOptions = {
-    origin: (origin, callback) => callback(null, isAllowed(origin)),
-    methods: ["GET", "POST"],
-    credentials: false,
-  };
+    const cleanOrigin = origin.trim().replace(/\/$/, "");
 
-  return { isAllowed, corsOptions, allowedOrigins: [...exact] };
-}
+    // Check direct allowed list
+    if (allowedOrigins.includes(cleanOrigin)) {
+      callback(null, true);
+      return;
+    }
 
-module.exports = { buildOriginPolicy };
+    // Allow any localhost / 127.0.0.1 for local dev
+    if (cleanOrigin.includes("localhost") || cleanOrigin.includes("127.0.0.1")) {
+      callback(null, true);
+      return;
+    }
+
+    // Allow Vercel preview / deployment URLs
+    if (cleanOrigin.endsWith(".vercel.app")) {
+      callback(null, true);
+      return;
+    }
+
+    // Otherwise, deny in production, allow in dev
+    if (process.env.NODE_ENV !== "production") {
+      callback(null, true);
+    } else {
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST"],
+};
+
+module.exports = {
+  allowedOrigins,
+  corsOptions
+};

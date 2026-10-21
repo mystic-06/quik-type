@@ -1,28 +1,21 @@
-// Periodic housekeeping.
-module.exports = ({ manager, leaderboard, settings, limiters, log = console.log }) => {
-  const timers = [];
-  const every = (ms, fn) => {
-    const t = setInterval(fn, ms);
-    t.unref?.();
-    timers.push(t);
-  };
+module.exports = (roomManager) => {
+  // Periodic cleanup of old empty rooms
+  setInterval(() => {
+    const now = Date.now();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 hours
 
-  // Results that could not be written to Redis earlier are written when it is back
-  every(15_000, () => void leaderboard.flushPending());
+    for (const [roomId, room] of roomManager.rooms.entries()) {
+      if (room.participants.size === 0 && now - room.createdAt > maxAge) {
+        roomManager.deleteRoom(roomId);
+      }
+    }
+  }, 60 * 60 * 1000); // Run every hour
 
-  // Forget address counters from past minutes
-  every(60_000, () => limiters.forEach((limiter) => limiter.sweep()));
-
-  // Teams nobody has been in for a long time are forgotten
-  every(60 * 60_000, () => {
-    const removed = manager.sweepIdleTeams(settings.teamRoomTtlMs);
-    if (removed > 0) log(`Removed ${removed} idle team room(s).`);
-  });
-
-  every(2 * 60_000, () => {
-    const stats = manager.stats();
-    log(`Server stats - Rooms: ${stats.rooms} (${stats.teams} teams), Players: ${stats.players} (${stats.connected} connected)`);
-  });
-
-  return () => timers.forEach(clearInterval);
+  // Log server stats periodically
+  setInterval(() => {
+    const stats = roomManager.getRoomStats();
+    console.log(
+      `Server stats - Rooms: ${stats.totalRooms}, Participants: ${stats.totalParticipants}`
+    );
+  }, 2 * 60 * 1000); // Every 2 minutes
 };
