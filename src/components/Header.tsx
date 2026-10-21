@@ -2,7 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Keyboard, Trophy, Users, Github, Menu, X } from "lucide-react";
+import { Keyboard, Trophy, Users, UsersRound, Github, Menu, X } from "lucide-react";
 
 export default function Header() {
   const pathname = usePathname();
@@ -11,6 +11,7 @@ export default function Header() {
   const navItems = [
     { href: "/", label: "Solo", icon: Keyboard },
     { href: "/multiplayer", label: "Multiplayer", icon: Users },
+    { href: "/teams", label: "Teams", icon: UsersRound },
     { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
   ];
 

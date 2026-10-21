@@ -1,0 +1,25 @@
+{
+  "name": "quik-type-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-time room, scoring and leaderboard server for QuikType",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node --test --test-concurrency=1 --test-timeout=60000 test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.35.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "random-words": "^2.0.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}

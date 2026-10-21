@@ -1,57 +1,49 @@
-const express = require("express");
-const cors = require("cors");
-const { createServer } = require("node:http");
-const { Server } = require("socket.io");
+const { createGameServer } = require("./app");
+const { LeaseHeldError } = require("./services/roomMirror");
 
-const { corsOptions } = require("./config/cors");
-const apiRoutes = require("./routes/api");
-const RoomManager = require("./managers/RoomManager");
-const startCronJobs = require("./jobs/cron");
-const roomController = require("./controllers/roomController");
-const gameController = require("./controllers/gameController");
+const PORT = Number.parseInt(process.env.PORT ?? "", 10) || 3001;
+const game = createGameServer();
 
-const app = express();
+async function main() {
+  try {
+    const port = await game.start(PORT);
+    console.log(`Socket.IO server running on port ${port}`);
+    console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  } catch (err) {
+    if (err instanceof LeaseHeldError) {
+      console.error(
+        `FATAL: another QuikType server already holds the room-state lease on this Redis${err.holder ? ` (${err.holder})` : ""}. ` +
+          "Two servers must not run the same rooms. Stop the other one, or give this one its own REDIS_KEY_PREFIX."
+      );
+      process.exit(1);
+    }
+    throw err;
+  }
+}
 
-// Configure CORS for Express
-app.use(cors(corsOptions));
+let stopping = false;
+async function shutdown(signal) {
+  if (stopping) return;
+  stopping = true;
+  console.log(`${signal} received. Saving rooms and shutting down...`);
+  const force = setTimeout(() => process.exit(1), 10_000);
+  force.unref();
+  try {
+    await game.stop();
+  } finally {
+    process.exit(0);
+  }
+}
 
-const server = createServer(app);
-
-// Instantiate state manager
-const roomManager = new RoomManager();
-
-// Apply REST API routes
-app.use("/", apiRoutes(roomManager));
-
-// Start background tasks
-startCronJobs(roomManager);
-
-// Configure Socket.IO with enhanced CORS and connection handling
-const io = new Server(server, {
-  cors: corsOptions,
-  connectionStateRecovery: {
-    // Enable connection state recovery
-    maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
-    skipMiddlewares: true,
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000,
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("unhandledRejection", (reason) => console.error("Unhandled rejection:", reason));
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  void shutdown("uncaughtException");
 });
 
-// Connection handling
-io.on("connection", (socket) => {
-  // Register controllers
-  roomController(io, socket, roomManager);
-  gameController(io, socket, roomManager);
-
-  // Connection errors
-  socket.on("error", (error) => {
-    console.error(`Socket error for ${socket.id}:`, error);
-  });
-});
-
-const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`Socket.IO server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+main().catch((err) => {
+  console.error("Failed to start:", err);
+  process.exit(1);
 });

@@ -9,13 +9,8 @@ interface TypingAreaProps {
   onTestStart: () => void;
   onTestFinish: () => void;
   onTryAgain?: () => void;
-  onResultsSubmit?: (results: {
-    wpm: number;
-    rawWpm: number;
-    accuracy: number;
-    charactersTyped: number;
-    completionPercentage: number;
-  }) => void;
+  // The server scores what was typed; the figures shown on this screen are for the player only
+  onResultsSubmit?: (results: { typed: string }) => void;
   isMultiplayer?: boolean;
 }
 
@@ -165,18 +160,12 @@ export default function TypingArea({
 
   useEffect(() => {
     if (isComplete && isMultiplayer && onResultsSubmit && !resultsSubmittedRef.current) {
-      const resultsToSubmit = {
-        wpm: metrics.wpm,
-        rawWpm: metrics.rawWpm,
-        accuracy: metrics.accuracy,
-        charactersTyped: metrics.charactersTyped,
-        completionPercentage: metrics.completionPercentage,
-      };
+      const resultsToSubmit = { typed: userInput };
 
       resultsSubmittedRef.current = true;
       onResultsSubmit(resultsToSubmit);
     }
-  }, [isComplete, isMultiplayer, onResultsSubmit, metrics, timeLeft, userInput.length, fullText.length, hasStarted]);
+  }, [isComplete, isMultiplayer, onResultsSubmit, userInput]);
 
   useEffect(() => {
     const activeChar = charRefs.current.get(currentIndex);
