@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Keyboard, Users, Menu, X, Flag, LogOut } from "lucide-react";
+import { Keyboard, Trophy, Users, UsersRound, Menu, X, Flag, LogOut } from "lucide-react";
 import { EVENT_API_URL, eventFetch } from "@/lib/event";
 import ProfileAvatar from "@/components/ProfileAvatar";
 
@@ -52,6 +52,8 @@ export default function Header() {
   const navItems = [
     { href: "/", label: "Solo", icon: Keyboard },
     { href: "/multiplayer", label: "Multiplayer", icon: Users },
+    { href: "/teams", label: "Teams", icon: UsersRound },
+    { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
     { href: "/event", label: "Event", icon: Flag },
   ];
 

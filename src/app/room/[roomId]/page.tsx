@@ -1,25 +1,34 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import SetupPhase from "@/components/SetupPhase";
 import CountdownPhase from "@/components/CountdownPhase";
 import TypingArea from "@/components/TypingArea";
 import ResultPhase from "@/components/ResultPhase";
 import { useSocket } from "@/hooks/useSocket";
-import { Copy, Check, Wifi, WifiOff } from "lucide-react";
+import { Copy, Check, Wifi, WifiOff, AlertCircle, X, UsersRound, Crown, LogOut } from "lucide-react";
 
 export default function Room() {
   const params = useParams();
+  const router = useRouter();
   const roomId = params.roomId as string;
   const {
-    socket,
     isConnected,
+    myId,
+    error,
+    clearError,
     roomState,
     joinRoom,
     configureTest,
     toggleReady,
     restartRoom,
     submitResults,
+    leaveRoom,
+    lockRoster,
+    roomClosed,
+    teamResult,
+    teamStanding,
     time,
     isTestActive,
     setTime,
@@ -27,16 +36,12 @@ export default function Room() {
     testContent,
     finalRankings,
   } = useSocket();
-  const [currentUserId, setCurrentUserId] = useState<string>("");
   const [hasJoined, setHasJoined] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mockParticipants, setMockParticipants] = useState(() => [
     {
       id: "mock-1",
-      username:
-        typeof window !== "undefined"
-          ? localStorage.getItem("username") || "Player"
-          : "Player",
+      username: "Player",
       isReady: false,
       isHost: true,
     },
@@ -51,17 +56,13 @@ export default function Room() {
 
   useEffect(() => {
     const username = localStorage.getItem("username") || "Player";
+    // Offline preview only: the name is read here, after hydration, not while rendering
+    setMockParticipants((prev) => prev.map((p) => (p.id === "mock-1" ? { ...p, username } : p)));
     if (!hasJoined && roomId) {
       joinRoom(roomId, username);
       setHasJoined(true);
     }
   }, [roomId, joinRoom, hasJoined]);
-
-  useEffect(() => {
-    if (socket?.id) {
-      setCurrentUserId(socket.id);
-    }
-  }, [socket?.id]);
 
   const handleConfigChange = (config: { timerDuration: number }) => {
     if (isConnected) {
@@ -79,13 +80,7 @@ export default function Room() {
     setTestStatus(false);
   }
 
-  function handleResultsSubmit(results: {
-    wpm: number;
-    rawWpm: number;
-    accuracy: number;
-    charactersTyped: number;
-    completionPercentage: number;
-  }) {
+  function handleResultsSubmit(results: { typed: string }) {
     submitResults(results);
   }
 
@@ -127,11 +122,18 @@ export default function Room() {
     }
   };
 
+  const team = isConnected ? roomState?.team ?? null : null;
+
+  const handleLeaveTeam = () => {
+    leaveRoom();
+    router.push("/teams");
+  };
+
   const phase = roomState?.phase || "setup";
   const roomConfig = roomState?.config || mockConfig;
   const participants =
     isConnected && roomState?.participants ? roomState.participants : mockParticipants;
-  const effectiveCurrentUserId = currentUserId || "mock-1";
+  const effectiveCurrentUserId = (isConnected && myId) || "mock-1";
 
   const currentUser = participants.find((p) => p.id === effectiveCurrentUserId);
   const isHost = currentUser?.isHost || false;
@@ -172,6 +174,48 @@ export default function Room() {
           </div>
         </div>
 
+        {team && (
+          <div className="nb-card-flat max-w-xl mx-auto mb-6 px-5 py-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <span className="flex items-center gap-2 font-black">
+              <UsersRound className="w-4 h-4" /> {team.name}
+            </span>
+            <span className="font-mono text-[var(--ts-sm)] text-[var(--text-secondary)]">
+              {participants.length}/{team.targetSize} players
+            </span>
+            {isHost && (
+              <span className="nb-badge bg-[var(--primary)] text-[10px]">
+                <Crown className="w-2.5 h-2.5" /> You are captain
+              </span>
+            )}
+            {team.disqualified && <span className="nb-badge bg-[var(--surface-alt)] text-[10px]">Not counted on the leaderboard</span>}
+            <button onClick={handleLeaveTeam} className="nb-btn nb-btn-ghost !py-1 !px-3 text-[var(--ts-xs)]">
+              <LogOut className="w-3.5 h-3.5" /> Leave team
+            </button>
+          </div>
+        )}
+
+        {roomClosed && (
+          <div role="alert" className="nb-card max-w-xl mx-auto mb-6 p-6 text-center">
+            <p className="font-bold mb-3">{roomClosed}</p>
+            <Link href="/teams" className="nb-btn nb-btn-primary inline-flex">
+              Back to Teams
+            </Link>
+          </div>
+        )}
+
+        {error && (
+          <div
+            role="alert"
+            className="nb-card-flat max-w-xl mx-auto mb-6 px-4 py-3 flex items-center gap-3 bg-[var(--surface-alt)]"
+          >
+            <AlertCircle className="w-4 h-4 shrink-0 text-[var(--secondary)]" />
+            <span className="text-[var(--ts-sm)] font-bold flex-1">{error}</span>
+            <button onClick={clearError} aria-label="Dismiss" className="cursor-pointer">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {phase === "setup" && (
           <SetupPhase
             isHost={isHost}
@@ -180,6 +224,8 @@ export default function Room() {
             onConfigChange={handleConfigChange}
             onReadyToggle={handleReadyToggle}
             currentUserId={effectiveCurrentUserId}
+            team={team}
+            onLockRoster={lockRoster}
           />
         )}
 
@@ -191,6 +237,8 @@ export default function Room() {
             currentUserId={effectiveCurrentUserId}
             isHost={isHost}
             onPlayAgain={handlePlayAgain}
+            teamResult={teamResult}
+            teamStanding={teamStanding}
           />
         ) : phase === "test" ? (
           <div className="max-w-5xl mx-auto">
